@@ -6,4 +6,4 @@
 * pygame (1.9.6)
 * tensorflow-gpu (2.0.0)
 
-## This project is in a very early stage, it is NOT stable
+## This project is at a very early stage, it is NOT stable
