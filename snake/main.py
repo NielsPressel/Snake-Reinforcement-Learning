@@ -4,26 +4,33 @@
 import random
 import pygame
 import time
+import numpy as np
 from pygame.locals import *
+from DQNUtil.dqn_model import DeepQNetwork
 
 
 class SnakeApp:
-    STATE_STILL = 0
-    STATE_RIGHT = 1
-    STATE_LEFT = 2
-    STATE_UP = 3
-    STATE_DOWN = 4
+    STATE_RIGHT = 0
+    STATE_LEFT = 1
+    STATE_UP = 2
+    STATE_DOWN = 3
+    STATE_STILL = 4
     FPS = 60
 
     def __init__(self):
         self.__running = True
         self.__display_surf = None
         self.__size = self.__width, self.__height = 1000, 1000
-        self.__snake = [(1, 1)]
-        self.__food = (random.randint(2, 19), random.randint(2, 19))
+        self.__snake = [(10, 10)]
+        self.__food = (random.randint(0, 19), random.randint(0, 19))
         self.__direction_state = self.STATE_STILL
         self.__next_action = self.STATE_STILL
         self.__clock = pygame.time.Clock()
+
+        self.__dqn = DeepQNetwork(20 * 20, 4, 3, 0.001)
+        self.__last_states = []
+        self.__state = None
+        self.__action = None
 
     def on_init(self):
         pygame.init()
@@ -48,8 +55,24 @@ class SnakeApp:
                     self.__next_action = self.STATE_DOWN
 
     def on_loop(self):
-        if self.__snake[-1][0] and self.__snake[-1][1]:
-            self.__direction_state = self.__next_action
+        if len(self.__last_states) == 3:
+            if self.__state is None:
+                self.__state = np.array(self.__last_states).T
+                self.__state = np.reshape(self.__state, [1, 20* 20, 3])
+            self.__action = self.__dqn.decide(self.__state)
+
+            if self.__action is self.STATE_RIGHT:
+                if not self.__direction_state == self.STATE_LEFT:
+                    self.__direction_state = self.STATE_RIGHT
+            elif self.__action is self.STATE_LEFT:
+                if not self.__direction_state == self.STATE_RIGHT:
+                    self.__direction_state = self.STATE_LEFT
+            elif self.__action is self.STATE_UP:
+                if not self.__direction_state == self.STATE_DOWN:
+                    self.__direction_state = self.STATE_UP
+            elif self.__action is self.STATE_DOWN:
+                if not self.__direction_state == self.STATE_UP:
+                    self.__direction_state = self.STATE_DOWN
 
         if self.__direction_state == self.STATE_LEFT:
             self.__snake.append((self.__snake[-1][0] - 1, self.__snake[-1][1]))
@@ -60,21 +83,44 @@ class SnakeApp:
         elif self.__direction_state == self.STATE_DOWN:
             self.__snake.append((self.__snake[-1][0], self.__snake[-1][1] + 1))
 
+        done = False
+        reward = 0
+
         if self.__snake[-1][0] < 0 or self.__snake[-1][0] > 19 or self.__snake[-1][1] < 0 or self.__snake[-1][1] > 19:
-            self.reset()
+            done = True
+            reward = -10
 
         for i in range(0, len(self.__snake) - 1):
             if self.__snake[-1] == self.__snake[i]:
-                self.reset()
+                done = True
+                reward = -10
                 break
 
         pop = True
         if self.__snake[-1] == self.__food:
             self.__food = (random.randint(0, 19), random.randint(0, 19))
             pop = False
+            reward = 10
 
         if not self.__direction_state == self.STATE_STILL and pop:
             self.__snake.pop(0)
+
+        s = self.build_current_state()
+
+        self.__last_states.append(s)
+        if len(self.__last_states) > 3:
+            self.__last_states.pop(0)
+
+        if self.__state is not None:
+            next_state = np.array(self.__last_states).T
+            next_state = np.reshape(next_state, [1, 20 * 20, 3])
+            self.__dqn.remember(self.__state, self.__action, reward, next_state, done)
+            self.__state = next_state
+
+        if done:
+            self.reset()
+        else:
+            self.__dqn.experience_replay()
 
     def on_render(self):
         self.__display_surf.fill((0, 0, 0))
@@ -94,10 +140,26 @@ class SnakeApp:
         pygame.display.update()
 
     def reset(self):
-        self.__snake = [(1, 1)]
-        self.__food = (random.randint(2, 19), random.randint(2, 19))
+        self.__snake = [(10, 10)]
+        self.__food = (random.randint(0, 19), random.randint(0, 19))
         self.__direction_state = self.STATE_STILL
         self.__next_action = self.STATE_STILL
+
+        self.__last_states = []
+        self.__state = None
+        self.__action = None
+
+        self.__dqn.adjust_exploration_rate()
+
+    def build_current_state(self):
+        state = np.zeros((20, 20))
+        for item in self.__snake:
+            if 0 <= item[0] < 20:
+                if 0 <= item[1] < 20:
+                    state[item[0]][item[1]] = 1
+
+        state[self.__food[0]][self.__food[1]] = 2
+        return state.flatten()
 
     @staticmethod
     def on_cleanup():
@@ -108,13 +170,13 @@ class SnakeApp:
         t = time.time()
 
         while self.__running:
-            self.__clock.tick(self.FPS)
+            #self.__clock.tick(self.FPS)
 
             for event in pygame.event.get():
                 self.on_event(event)
 
             ts = time.time()
-            if ts - t >= 0.15:
+            if ts - t >= 0.15 or True:
                 self.on_loop()
                 self.on_render()
                 t = ts
