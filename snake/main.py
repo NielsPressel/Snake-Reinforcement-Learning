@@ -5,10 +5,16 @@ import random
 import pygame
 import time
 import numpy as np
+import tensorflow as tf
 from pygame.locals import *
-from DQNUtil.dqn_model import DeepQNetwork
+from DQNUtil.dqn import DeepQNetwork
 
+tf.keras.backend.set_floatx('float64')
+model = DeepQNetwork(100, 100, 3, 4)
+arr = np.zeros((1, 100, 100, 3))
+print(model(arr))
 
+"""
 class SnakeApp:
     STATE_RIGHT = 0
     STATE_LEFT = 1
@@ -60,6 +66,8 @@ class SnakeApp:
                 self.__state = np.array(self.__last_states).T
                 self.__state = np.reshape(self.__state, [1, 20* 20, 3])
             self.__action = self.__dqn.decide(self.__state)
+        else:
+            self.__action = self.__dqn.decide(self.__state, True)
 
             if self.__action is self.STATE_RIGHT:
                 if not self.__direction_state == self.STATE_LEFT:
@@ -138,6 +146,7 @@ class SnakeApp:
         pygame.draw.circle(self.__display_surf, (200, 50, 50), (self.__food[0] * 50 + 25, self.__food[1] * 50 + 25), 25)
 
         pygame.display.update()
+        print(self.__display_surf.get_buffer())
 
     def reset(self):
         self.__snake = [(10, 10)]
@@ -187,3 +196,4 @@ class SnakeApp:
 if __name__ == "__main__":
     app = SnakeApp()
     app.on_execute()
+"""
