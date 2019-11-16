@@ -1,4 +1,5 @@
 import random
+import time
 import numpy as np
 import pygame
 from pygame.locals import *
@@ -38,16 +39,16 @@ class Environment:
         reward = 0
         done = False
 
-        if action is self.STATE_RIGHT:
+        if action == self.STATE_RIGHT:
             if not self.__direction_state == self.STATE_LEFT:
                 self.__direction_state = self.STATE_RIGHT
-        elif action is self.STATE_LEFT:
+        elif action == self.STATE_LEFT:
             if not self.__direction_state == self.STATE_RIGHT:
                 self.__direction_state = self.STATE_LEFT
-        elif action is self.STATE_UP:
+        elif action == self.STATE_UP:
             if not self.__direction_state == self.STATE_DOWN:
                 self.__direction_state = self.STATE_UP
-        elif action is self.STATE_DOWN:
+        elif action == self.STATE_DOWN:
             if not self.__direction_state == self.STATE_UP:
                 self.__direction_state = self.STATE_DOWN
 
