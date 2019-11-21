@@ -2,16 +2,19 @@
 # Author: Niels Pressel
 
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import Model, Sequential, load_model
-from tensorflow.keras.layers import Dense, Conv2D, Flatten, Activation
+import os
+from tensorflow.keras.layers import Dense, Conv2D, Flatten
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.optimizers import Adam
+
 from DQNUtil.replay_memory import ReplayMemory
 
 
 def build_dqn(lr, input_dims, number_actions, fc1_dims):
     model = Sequential()
-    model.add(Dense(256, input_shape=(input_dims,), activation='relu'))
+    model.add(Conv2D(32, kernel_size=(8, 8), strides=4, padding="same", input_shape=(*input_dims, ), activation='relu'))
+    model.add(Conv2D(64, kernel_size=(4, 4), strides=2, padding="same", activation='relu'))
+    model.add(Flatten())
     model.add(Dense(fc1_dims, activation='relu'))
     model.add(Dense(number_actions))
 
@@ -34,8 +37,8 @@ class Agent:
         self.replace = replace
         self.learn_step = 0
         self.memory = ReplayMemory(mem_size, input_dims)
-        self.q_eval = build_dqn(alpha, input_dims, number_actions, 512)
-        self.q_target = build_dqn(alpha, input_dims, number_actions, 512)
+        self.q_eval = build_dqn(alpha, input_dims, number_actions, 256)
+        self.q_target = build_dqn(alpha, input_dims, number_actions, 256)
 
     def align_target_network(self):
         if self.replace is not None and self.learn_step % self.replace == 0:
@@ -74,12 +77,12 @@ class Agent:
     def push_observation(self, state, action, reward, next_state, terminal):
         self.memory.push(state, action, reward, next_state, terminal)
 
-    def save_model(self):
+    def save_model(self, filepath):
         print("---Saving models---")
-        self.q_eval.save("eval.h5")
-        self.q_target.save("target.h5")
+        self.q_eval.save(os.path.join(filepath, "eval.h5"))
+        self.q_target.save(os.path.join(filepath, "target.h5"))
 
-    def load_models(self):
+    def load_models(self, filepath):
         print("--Loading Models---")
-        self.q_eval = load_model("eval.h5")
-        self.q_target = load_model("target.h5")
+        self.q_eval = load_model(os.path.join(filepath, "eval.h5"))
+        self.q_target = load_model(os.path.join(filepath, "target.h5"))

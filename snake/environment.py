@@ -1,8 +1,13 @@
 import random
-import time
+
+import sys
 import numpy as np
 import pygame
 from pygame.locals import *
+from PIL import Image
+from collections import deque
+
+np.set_printoptions(threshold=sys.maxsize)
 
 
 class Environment:
@@ -12,80 +17,86 @@ class Environment:
     STATE_DOWN = 3
     STATE_STILL = 4
 
-    def __init__(self, width, height, frame_count):
-        self.__width = width
-        self.__height = height
-        self.__frame_count = frame_count
+    def __init__(self, width, height, frame_count, input_width, input_height):
+        self.width = width
+        self.height = height
+        self.frame_count = frame_count
 
-        self.__snake = [(10, 10)]
-        self.__food = (random.randint(0, 19), random.randint(0, 19))
-        self.__direction_state = self.STATE_STILL
-        self.__last_states = []
+        self.input_width = input_width
+        self.input_height = input_height
 
-        self.__display_surf = pygame.display.set_mode((1000, 1000))
+        self.snake = [(10, 10)]
+        self.food = (random.randint(0, 19), random.randint(0, 19))
+        self.direction_state = self.STATE_STILL
+        self.last_states = None
+
+        self.__display_surf = pygame.display.set_mode((width, height))
+        self.render()
 
     def reset(self):
-        self.__snake = [(10, 10)]
-        self.__food = (random.randint(0, 19), random.randint(0, 19))
-        self.__direction_state = self.STATE_STILL
+        self.snake = [(10, 10)]
+        self.food = (random.randint(0, 19), random.randint(0, 19))
+        self.direction_state = self.STATE_STILL
 
         s = self._build_current_state()
-        self.__last_states = [s, s, s]
+        self.last_states = deque([s] * self.frame_count)
 
-        next_state = np.array(self.__last_states)
+        next_state = np.asarray(self.last_states).transpose()
         return next_state
 
     def act(self, action):
-        reward = 0
+        reward = 0.0
         done = False
 
         if action == self.STATE_RIGHT:
-            if not self.__direction_state == self.STATE_LEFT:
-                self.__direction_state = self.STATE_RIGHT
+            if not self.direction_state == self.STATE_LEFT:
+                self.direction_state = self.STATE_RIGHT
         elif action == self.STATE_LEFT:
-            if not self.__direction_state == self.STATE_RIGHT:
-                self.__direction_state = self.STATE_LEFT
+            if not self.direction_state == self.STATE_RIGHT:
+                self.direction_state = self.STATE_LEFT
         elif action == self.STATE_UP:
-            if not self.__direction_state == self.STATE_DOWN:
-                self.__direction_state = self.STATE_UP
+            if not self.direction_state == self.STATE_DOWN:
+                self.direction_state = self.STATE_UP
         elif action == self.STATE_DOWN:
-            if not self.__direction_state == self.STATE_UP:
-                self.__direction_state = self.STATE_DOWN
+            if not self.direction_state == self.STATE_UP:
+                self.direction_state = self.STATE_DOWN
 
-        if self.__direction_state == self.STATE_LEFT:
-            self.__snake.append((self.__snake[-1][0] - 1, self.__snake[-1][1]))
-        elif self.__direction_state == self.STATE_RIGHT:
-            self.__snake.append((self.__snake[-1][0] + 1, self.__snake[-1][1]))
-        elif self.__direction_state == self.STATE_UP:
-            self.__snake.append((self.__snake[-1][0], self.__snake[-1][1] - 1))
-        elif self.__direction_state == self.STATE_DOWN:
-            self.__snake.append((self.__snake[-1][0], self.__snake[-1][1] + 1))
+        if self.direction_state == self.STATE_LEFT:
+            self.snake.append((self.snake[-1][0] - 1, self.snake[-1][1]))
+        elif self.direction_state == self.STATE_RIGHT:
+            self.snake.append((self.snake[-1][0] + 1, self.snake[-1][1]))
+        elif self.direction_state == self.STATE_UP:
+            self.snake.append((self.snake[-1][0], self.snake[-1][1] - 1))
+        elif self.direction_state == self.STATE_DOWN:
+            self.snake.append((self.snake[-1][0], self.snake[-1][1] + 1))
 
-        if self.__snake[-1][0] < 0 or self.__snake[-1][0] > 19 or self.__snake[-1][1] < 0 or self.__snake[-1][1] > 19:
+        if self.snake[-1][0] < 0 or self.snake[-1][0] > 19 or self.snake[-1][1] < 0 or self.snake[-1][1] > 19:
             done = True
-            reward = -10
+            reward = -1.0
 
-        for i in range(0, len(self.__snake) - 1):
-            if self.__snake[-1] == self.__snake[i]:
+        for i in range(0, len(self.snake) - 1):
+            if self.snake[-1] == self.snake[i]:
                 done = True
-                reward = -10
+                reward = -1.0
                 break
 
         pop = True
-        if self.__snake[-1] == self.__food:
-            self.__food = (random.randint(0, 19), random.randint(0, 19))
+        if self.snake[-1] == self.food:
+            self.food = (random.randint(0, 19), random.randint(0, 19))
             pop = False
-            reward = 10
+            reward = 1.0
 
-        if not self.__direction_state == self.STATE_STILL and pop:
-            self.__snake.pop(0)
+        if not self.direction_state == self.STATE_STILL and pop:
+            self.snake.pop(0)
 
         s = self._build_current_state()
-        self.__last_states.pop(0)
-        self.__last_states.append(s)
+        if self.last_states is None:
+            self.last_states = deque([s] * self.frame_count)
+        else:
+            self.last_states.append(s)
+            self.last_states.popleft()
 
-        next_state = np.array(self.__last_states)
-
+        next_state = np.asarray(self.last_states).transpose()
         return next_state, reward, done
 
     def render(self):
@@ -95,26 +106,28 @@ class Environment:
 
         self.__display_surf.fill((0, 0, 0))
 
-        for x in range(0, 1000, 50):
-            pygame.draw.line(self.__display_surf, (100, 100, 100), (x - 1, 0), (x - 1, 1000), 2)
+        for x in range(0, self.width, int(self.width / 20)):
+            pygame.draw.line(self.__display_surf, (100, 100, 100), (x - 1, 0), (x - 1, self.height), 2)
 
-        for y in range(0, 1000, 50):
-            pygame.draw.line(self.__display_surf, (100, 100, 100), (0, y - 1), (1000, y - 1), 2)
+        for y in range(0, self.height, int(self.height / 20)):
+            pygame.draw.line(self.__display_surf, (100, 100, 100), (0, y - 1), (self.width, y - 1), 2)
 
-        for item in self.__snake:
+        for item in self.snake:
             pygame.draw.rect(self.__display_surf, (255, 255, 255),
-                             (int(item[0] * 50 + 2), int(item[1] * 50 + 2), 46, 46), 0)
+                             (int(item[0] * int(self.width / 20) + 2), int(item[1] * int(self.height / 20) + 2), 46, 46), 0)
 
-        pygame.draw.circle(self.__display_surf, (200, 50, 50), (self.__food[0] * 50 + 25, self.__food[1] * 50 + 25), 25)
+        pygame.draw.circle(self.__display_surf, (200, 50, 50), (self.food[0] * int(self.width / 20) + 25, self.food[1] *
+                                                                int(self.height / 20) + 25), 25)
 
         pygame.display.update()
 
     def _build_current_state(self):
-        state = np.zeros((20, 20))
-        for item in self.__snake:
-            if 0 <= item[0] < 20:
-                if 0 <= item[1] < 20:
-                    state[item[0]][item[1]] = 1
+        data = pygame.image.tostring(self.__display_surf, 'RGB')
+        image = Image.frombytes('RGB', (self.width, self.height), data)
+        image = image.convert('L')
+        image = image.resize((self.input_width, self.input_height))
 
-        state[self.__food[0]][self.__food[1]] = 2
-        return state
+        matrix = np.asarray(image.getdata(), dtype=np.uint8)
+        matrix = (matrix - 128) / (128 - 1)
+
+        return matrix.reshape(image.size[0], image.size[1])

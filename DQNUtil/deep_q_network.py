@@ -1,5 +1,7 @@
-import tensorflow as tf
 import os
+
+import tensorflow as tf
+
 
 # This class is written in tensorflow 1.x style, just for reference prurposes
 
