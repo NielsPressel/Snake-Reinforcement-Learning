@@ -1,3 +1,22 @@
+"""This module provides an implementation of a Double Deep Q-Learning Agent.
+
+Typical usage example:
+
+    agent = DQN(model, env.action_space.n)
+
+    state = env.reset()
+    for step in range(MAX_STEPS):
+        action = agent.act(state)
+        next_state, reward, done, _ = env.step(action)
+        agent.push_observation(Transition(state, action, reward, next_state if not done else None))
+        agent.train(step)
+
+        if done:
+            state = env.reset()
+        else:
+            state = next_state
+"""
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
@@ -8,10 +27,28 @@ from framework.core import Agent
 from framework.policy import EpsilonGreedy
 from framework.memory import PrioritizedExperienceReplay
 
+
 class DQN(Agent):
     """Simple implementation of a deep Q-Learning Agent.
 
-        This implementation is based on "Playing Atari with Deep Reinforcement Learning" (Mnih et al., 2013)
+        This implementation is based on "Playing Atari with Deep Reinforcement Learning" (Mnih et al., 2013).
+        Also some code is taken from Huskarl (https://github.com/danaugrs/huskarl).
+
+        Attributes:
+            actions (int): Number of possible actions.
+            optimizer (tf.keras.optimzers.Optimizer): The optimizer which will adjust the network's weights via
+                                                      backpropagation.
+            policy (framework.core.Policy): The policy for training.
+            mem_size (int): Maximum size of the replay memory.
+            memory (framework.core.Memory): The memory in which all transitions are stored.
+            target_network_update (float): Determines how the target network's weights are adjusted / updated with the
+                                           ones of the model.
+            gamma (float): Discount rate for calculating the discounted return while training.
+            batch_size (int): Batch size that will get fetched from memory for training.
+            nsteps (int): Number of steps that fit into one trace in memory.
+            training (bool): Determines whether to follow the training or the evaluation policy.
+            model (tf.keras.models.Model): The base model that gets trained every iteration and that predicts the
+                                           QValues while acting of the agent.
     """
 
     def __init__(self, model, actions, optimizer=None, policy=None, mem_size=100_000, target_update=10, gamma=0.99,
@@ -99,12 +136,8 @@ class DQN(Agent):
         non_final_last_next_states = [es for es in end_state_batch if es is not None]
 
         if len(non_final_last_next_states) > 0:
-            # "Deep Reinforcement Learning with Double Q-learning" (van Hasselt et al., 2015)
-            # The online network predicts the actions while the target network is used to estimate the Q-values
             q_values = self.model.predict_on_batch(np.array(non_final_last_next_states))
             actions = np.argmax(q_values, axis=1)
-            # Estimate Q-values using the target network but select the values with the
-            # highest Q-value wrt to the online model (as computed above).
             target_q_values = self.target_model.predict_on_batch(np.array(non_final_last_next_states))
             selected_target_q_vals = target_q_values[range(len(target_q_values)), actions]
             selected_target_q_vals = self.target_model.predict_on_batch(np.array(non_final_last_next_states)).max(1)

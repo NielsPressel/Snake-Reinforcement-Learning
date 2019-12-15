@@ -76,7 +76,7 @@ The following part is copied from huskarl framework! (https://github.com/danaugr
 EPS = 1e-3  # Constant added to all priorities to prevent them from being zero
 
 
-class PrioritizedExperienceReplay:
+class PrioritizedExperienceReplay(Memory):
     """Stores prioritized interaction with an environment in a priority queue implemented via a heap.
 
     Provides efficient prioritized sampling of multistep traces.

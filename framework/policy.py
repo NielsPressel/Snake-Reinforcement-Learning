@@ -17,10 +17,10 @@ class EpsilonGreedy(Policy):
         self.epsilon = epsilon
 
     def act(self, q_values):
-        """This method chooses an action based on given QValues.
+        """Chooses an action based on given QValues.
 
         Args:
-            q_values (np.ndarray): QValues to predict the largest value from.
+            q_values (np.ndarray): QValues to calculate the largest value from.
 
         Returns:
             int: The action that was chosen.
@@ -28,3 +28,21 @@ class EpsilonGreedy(Policy):
         if random.random() > self.epsilon:
             return np.argmax(q_values)
         return random.randrange(len(q_values))
+
+
+class Greedy(Policy):
+    """Implementation of a simple testing policy.
+
+    This policy just returns the index of the largest value.
+    """
+
+    def act(self, q_values):
+        """Chooses the index with the largest value.
+
+        Args:
+            q_values (np.ndarray): QValues to calculate the largest value from.
+
+        Returns:
+            int: The index chosen.
+        """
+        return np.argmax(q_values)
