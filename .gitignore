@@ -1,4 +1,4 @@
 /.idea
 /venv
-/DQNUtil/__pycache__
+/framework/__pycache__
 /snake/__pycache__
