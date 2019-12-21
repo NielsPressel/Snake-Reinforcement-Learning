@@ -88,6 +88,10 @@ class Memory:
 class Environment:
     """Abstract base class for environment building. Do not instantiate this!"""
 
+    @classmethod
+    def create(cls, *args):
+        raise NotImplementedError()
+
     def step(self, action):
         """This method executes on step in the environment based on a given action.
 

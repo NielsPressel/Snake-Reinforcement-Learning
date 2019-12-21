@@ -1,4 +1,4 @@
 /.idea
 /venv
-/framework/__pycache__
-/snake/__pycache__
+
+__pycache__/

@@ -17,6 +17,7 @@ Typical usage example:
             state = next_state
 """
 
+import random
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
@@ -161,3 +162,21 @@ class DQN(Agent):
 
         # Train model
         self.model.train_on_batch(np.array(state_batch), np.stack(loss_data).transpose())
+
+
+class Random(Agent):
+
+    def __init__(self, actions):
+        self.actions = actions
+
+    def act(self, state):
+        return random.randrange(4)
+
+    def push_observation(self, transition):
+        pass
+
+    def train(self, step):
+        pass
+
+    def save(self, filename):
+        pass

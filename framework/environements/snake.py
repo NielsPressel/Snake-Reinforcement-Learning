@@ -1,21 +1,24 @@
-import random
-
-import sys
 import numpy as np
+import random
 import pygame
 from pygame.locals import *
 from PIL import Image
 from collections import deque
 
-np.set_printoptions(threshold=sys.maxsize)
+from framework.core import Environment
 
 
-class Environment:
+class Snake(Environment):
+
     STATE_RIGHT = 0
     STATE_LEFT = 1
     STATE_UP = 2
     STATE_DOWN = 3
     STATE_STILL = 4
+
+    @classmethod
+    def create(cls):
+        return cls(1000, 1000, 4, 84,  84)
 
     def __init__(self, width, height, frame_count, input_width, input_height):
         self.width = width
@@ -44,8 +47,8 @@ class Environment:
         next_state = np.asarray(self.last_states).transpose()
         return next_state
 
-    def act(self, action):
-        reward = 0.0
+    def step(self, action):
+        reward = 0.1
         done = False
 
         if action == self.STATE_RIGHT:
@@ -97,7 +100,7 @@ class Environment:
             self.last_states.popleft()
 
         next_state = np.asarray(self.last_states).transpose()
-        return next_state, reward, done
+        return next_state, reward, done, None
 
     def render(self):
         for event in pygame.event.get():
@@ -114,7 +117,9 @@ class Environment:
 
         for item in self.snake:
             pygame.draw.rect(self.__display_surf, (255, 255, 255),
-                             (int(item[0] * int(self.width / 20) + 2), int(item[1] * int(self.height / 20) + 2), 46, 46), 0)
+                             (
+                             int(item[0] * int(self.width / 20) + 2), int(item[1] * int(self.height / 20) + 2), 46, 46),
+                             0)
 
         pygame.draw.circle(self.__display_surf, (200, 50, 50), (self.food[0] * int(self.width / 20) + 25, self.food[1] *
                                                                 int(self.height / 20) + 25), 25)
