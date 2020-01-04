@@ -11,6 +11,33 @@ class Training:
         if max_subprocesses == 0:
             self._sp_train(max_steps, instances, visualize, plot_func)
 
+    def evaluate(self, max_steps=10_000, visualize=False, plot_func=None):
+        self.agent.training = False
+        env = self.create_env_func()
+        state = env.reset()
+        episode_reward = 0
+        episode_rewards = []
+        episode_steps = []
+
+        for step in range(max_steps):
+            if visualize:
+                env.render()
+            action = self.agent.act(state)
+            next_state, reward, done, _ = env.step(action)
+            episode_reward += reward
+            if done:
+                episode_rewards.append(episode_reward)
+                episode_steps.append(step)
+                episode_reward = 0
+                if plot_func:
+                    plot_func(episode_rewards, episode_steps)
+                state = env.reset()
+            else:
+                state = next_state
+
+        if plot_func:
+            plot_func(episode_rewards, episode_steps, True)
+
     def _sp_train(self, max_steps, instances, visualize, plot):
         """Trains using a single process."""
         # Keep track of rewards per episode per instance
@@ -21,6 +48,7 @@ class Training:
         # Create and initialize environment instances
         envs = [self.create_env_func() for i in range(instances)]
         states = [env.reset() for env in envs]
+        print(states[0])
 
         for step in range(max_steps):
             for i in range(instances):

@@ -6,7 +6,7 @@ from collections import deque
 from framework.core import Environment
 
 
-class SnakeAbstract(Environment):
+class SnakeSimple(Environment):
     STATE_RIGHT = 0
     STATE_LEFT = 1
     STATE_UP = 2
@@ -15,32 +15,27 @@ class SnakeAbstract(Environment):
 
     @classmethod
     def create(cls):
-        return cls(1000, 1000, 2)
+        return cls(1000, 1000)
 
-    def __init__(self, width, height, frame_count):
+    def __init__(self, width, height):
         self.width = width
         self.height = height
-        self.frame_count = frame_count
 
-        self.snake = [(random.randint(0, 19), random.randint(0, 19))]
+        self.snake = [(10, 10)]
         self.food = (random.randint(0, 19), random.randint(0, 19))
         self.direction_state = self.STATE_STILL
-        self.last_states = None
         self.display_surf = None
 
     def reset(self):
-        self.snake = [(random.randint(0, 19), random.randint(0, 19))]
+        self.snake = [(10, 10)]
         self.food = (random.randint(0, 19), random.randint(0, 19))
         self.direction_state = self.STATE_STILL
 
         s = self._build_current_state()
-        self.last_states = deque([s] * self.frame_count)
-
-        next_state = np.asarray(self.last_states).transpose()
-        return next_state
+        return s
 
     def step(self, action):
-        reward = 0.5
+        reward = 0.05
         done = False
 
         if action == self.STATE_RIGHT:
@@ -78,21 +73,14 @@ class SnakeAbstract(Environment):
         pop = True
         if self.snake[-1] == self.food:
             self.food = (random.randint(0, 19), random.randint(0, 19))
-            #pop = False
+            pop = False
             #reward = 1.0
 
         if not self.direction_state == self.STATE_STILL and pop:
             self.snake.pop(0)
 
         s = self._build_current_state()
-        if self.last_states is None:
-            self.last_states = deque([s] * self.frame_count)
-        else:
-            self.last_states.append(s)
-            self.last_states.popleft()
-
-        next_state = np.asarray(self.last_states).transpose()
-        return next_state, reward, done, None
+        return s, reward, done, None
 
     def render(self):
         if self.display_surf is None:
@@ -121,12 +109,9 @@ class SnakeAbstract(Environment):
         pygame.display.update()
 
     def _build_current_state(self):
-        state = np.zeros((20, 20))
-        for item in self.snake:
-            if 0 <= item[0] < 20:
-                if 0 <= item[1] < 20:
-                    state[item[0]][item[1]] = 1
-
-        state[self.food[0]][self.food[1]] = 2
+        state = np.zeros(4)
+        state[0] = self.snake[0][1]
+        state[1] = 20 - self.snake[0][1]
+        state[2] = self.snake[0][0]
+        state[3] = 20 - self.snake[0][0]
         return state
-

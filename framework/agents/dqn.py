@@ -25,7 +25,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Model
 
 from framework.core import Agent
-from framework.policy import EpsilonGreedy
+from framework.policy import EpsilonGreedy, Greedy
 from framework.memory import PrioritizedExperienceReplay
 
 
@@ -59,6 +59,7 @@ class DQN(Agent):
         self.optimizer = Adam(lr=3e-3) if optimizer is None else optimizer
 
         self.policy = EpsilonGreedy(0.1) if policy is None else policy
+        self.eval_policy = Greedy()
 
         self.mem_size = mem_size
         self.memory = PrioritizedExperienceReplay(mem_size, nsteps)
@@ -104,9 +105,12 @@ class DQN(Agent):
         """Saves the model parameters to the specified file."""
         self.model.save_weights(filename, overwrite=overwrite)
 
+    def load(self, filename):
+        self.model.load_weights(filename)
+
     def act(self, state):
         qvals = self.model.predict(np.array([state]))[0]
-        return self.policy.act(qvals)
+        return self.policy.act(qvals) if self.training else self.eval_policy.act(qvals)
 
     def push_observation(self, transition):
         self.memory.put(transition)

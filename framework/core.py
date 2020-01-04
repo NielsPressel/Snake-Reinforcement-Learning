@@ -50,6 +50,9 @@ class Agent:
         """
         raise NotImplementedError()
 
+    def load(self, filename):
+        raise NotImplementedError()
+
 
 class Policy:
     """Abstract base class for policies. Do not instantiate this!"""
