@@ -1,4 +1,5 @@
 from framework.core import Transition
+import sys
 
 
 class Training:
@@ -7,9 +8,10 @@ class Training:
         self.create_env_func = create_env_func
         self.agent = agent
 
-    def train(self, max_steps=100_000, instances=1, visualize=False, plot_func=None, max_subprocesses=0):
+    def train(self, max_steps=100_000, instances=1, visualize=False, plot_func=None, max_subprocesses=0,
+              checkpnt_func=None, path="", rewards=None):
         if max_subprocesses == 0:
-            self._sp_train(max_steps, instances, visualize, plot_func)
+            self._sp_train(max_steps, instances, visualize, plot_func, checkpnt_func, path, rewards)
 
     def evaluate(self, max_steps=10_000, visualize=False, plot_func=None):
         self.agent.training = False
@@ -38,7 +40,7 @@ class Training:
         if plot_func:
             plot_func(episode_rewards, episode_steps, True)
 
-    def _sp_train(self, max_steps, instances, visualize, plot):
+    def _sp_train(self, max_steps, instances, visualize, plot, checkpnt_func, path, rewards):
         """Trains using a single process."""
         # Keep track of rewards per episode per instance
         episode_reward_sequences = [[] for i in range(instances)]
@@ -46,9 +48,8 @@ class Training:
         episode_rewards = [0] * instances
 
         # Create and initialize environment instances
-        envs = [self.create_env_func() for i in range(instances)]
+        envs = [self.create_env_func(rewards=rewards) for i in range(instances)]
         states = [env.reset() for env in envs]
-        print(states[0])
 
         for step in range(max_steps):
             for i in range(instances):
@@ -68,6 +69,12 @@ class Training:
                     states[i] = next_state
             # Perform one step of the optimization
             self.agent.train(step)
+            sys.stdout.write("\rDone with %.1f percent of the training" % ((float(step) / float(max_steps)) * 100.0))
+            sys.stdout.flush()
+
+            if checkpnt_func:
+                if step % 1000 == 0:
+                    checkpnt_func(path, self.agent, step)
 
         if plot:
             plot(episode_reward_sequences, episode_step_sequences, done=True)

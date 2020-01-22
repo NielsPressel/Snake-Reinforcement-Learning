@@ -1,60 +1,73 @@
 import random
+from collections import deque
+
 import numpy as np
 import pygame
 from pygame.locals import *
-from collections import deque
+
 from framework.core import Environment
 
 
 class SnakeAbstract(Environment):
     STATE_RIGHT = 0
-    STATE_LEFT = 1
-    STATE_UP = 2
-    STATE_DOWN = 3
+    STATE_DOWN = 1
+    STATE_LEFT = 2
+    STATE_UP = 3
     STATE_STILL = 4
 
-    @classmethod
-    def create(cls):
-        return cls(1000, 1000, 2)
+    ACTION_MAINTAIN = 0
+    ACTION_LEFT = 1
+    ACTION_RIGHT = 2
 
-    def __init__(self, width, height, frame_count):
+    CELL_EMPTY = 0.0
+    CELL_WALL = 1.0
+    CELL_SNAKE_BODY = 2.0
+    CELL_SNAKE_HEAD = 3.0
+    CELL_FOOD = 4.0
+
+    @classmethod
+    def create(cls, rewards=None):
+        return cls(1000, 1000, 1, rewards)
+
+    def __init__(self, width, height, frame_count, rewards):
         self.width = width
         self.height = height
         self.frame_count = frame_count
 
-        self.snake = [(random.randint(0, 19), random.randint(0, 19))]
+        self.snake = [(random.randint(1, 18), random.randint(1, 18))]
         self.food = (random.randint(0, 19), random.randint(0, 19))
-        self.direction_state = self.STATE_STILL
+        self.direction_state = random.randint(0, 3)
         self.last_states = None
         self.display_surf = None
+        self.distance = 0
+
+        self.reward_dict = {'death': -10.0, 'food': 20.0, 'dec_distance': 3.0,
+                            'inc_distance': -5.0} if rewards is None else rewards
+        print(self.reward_dict)
 
     def reset(self):
-        self.snake = [(random.randint(0, 19), random.randint(0, 19))]
+        self.snake = [(random.randint(1, 18), random.randint(1, 18))]
         self.food = (random.randint(0, 19), random.randint(0, 19))
-        self.direction_state = self.STATE_STILL
+        self.direction_state = random.randint(0, 3)
+        self.distance = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
 
         s = self._build_current_state()
         self.last_states = deque([s] * self.frame_count)
 
-        next_state = np.asarray(self.last_states).transpose()
+        next_state = np.asarray(self.last_states)
         return next_state
 
     def step(self, action):
-        reward = 0.5
         done = False
 
-        if action == self.STATE_RIGHT:
-            if not self.direction_state == self.STATE_LEFT:
-                self.direction_state = self.STATE_RIGHT
-        elif action == self.STATE_LEFT:
-            if not self.direction_state == self.STATE_RIGHT:
-                self.direction_state = self.STATE_LEFT
-        elif action == self.STATE_UP:
-            if not self.direction_state == self.STATE_DOWN:
-                self.direction_state = self.STATE_UP
-        elif action == self.STATE_DOWN:
-            if not self.direction_state == self.STATE_UP:
-                self.direction_state = self.STATE_DOWN
+        if action == self.ACTION_LEFT:
+            self.direction_state -= 1
+            if self.direction_state < 0:
+                self.direction_state = 3
+        elif action == self.ACTION_RIGHT:
+            self.direction_state += 1
+            if self.direction_state > 3:
+                self.direction_state = 0
 
         if self.direction_state == self.STATE_LEFT:
             self.snake.append((self.snake[-1][0] - 1, self.snake[-1][1]))
@@ -65,24 +78,34 @@ class SnakeAbstract(Environment):
         elif self.direction_state == self.STATE_DOWN:
             self.snake.append((self.snake[-1][0], self.snake[-1][1] + 1))
 
-        if self.snake[-1][0] < 0 or self.snake[-1][0] > 19 or self.snake[-1][1] < 0 or self.snake[-1][1] > 19:
-            done = True
-            reward = -1.0
+        dist = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
 
-        for i in range(0, len(self.snake) - 1):
-            if self.snake[-1] == self.snake[i]:
-                done = True
-                reward = -1.0
-                break
+        if dist < self.distance:
+            reward = self.reward_dict['dec_distance']
+        else:
+            reward = self.reward_dict['inc_distance']
+
+        self.distance = dist
 
         pop = True
         if self.snake[-1] == self.food:
             self.food = (random.randint(0, 19), random.randint(0, 19))
-            #pop = False
-            #reward = 1.0
+            pop = False
+            reward = self.reward_dict['food']
+            self.distance = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
 
         if not self.direction_state == self.STATE_STILL and pop:
             self.snake.pop(0)
+
+        if self.snake[-1][0] < 0 or self.snake[-1][0] > 19 or self.snake[-1][1] < 0 or self.snake[-1][1] > 19:
+            done = True
+            reward = self.reward_dict['death']
+
+        for i in range(0, len(self.snake) - 1):
+            if self.snake[-1] == self.snake[i]:
+                done = True
+                reward = self.reward_dict['death']
+                break
 
         s = self._build_current_state()
         if self.last_states is None:
@@ -91,7 +114,7 @@ class SnakeAbstract(Environment):
             self.last_states.append(s)
             self.last_states.popleft()
 
-        next_state = np.asarray(self.last_states).transpose()
+        next_state = np.asarray(self.last_states)
         return next_state, reward, done, None
 
     def render(self):
@@ -121,12 +144,21 @@ class SnakeAbstract(Environment):
         pygame.display.update()
 
     def _build_current_state(self):
-        state = np.zeros((20, 20))
+        state = np.zeros((22, 22))
+
+        for x in range(0, 22):
+            state[x][0] = self.CELL_WALL
+            state[x][21] = self.CELL_WALL
+
+        for y in range(1, 21):
+            state[0][y] = self.CELL_WALL
+            state[21][y] = self.CELL_WALL
+
+        cntr = 0
         for item in self.snake:
-            if 0 <= item[0] < 20:
-                if 0 <= item[1] < 20:
-                    state[item[0]][item[1]] = 1
+            state[item[0] + 1][item[1] + 1] = self.CELL_SNAKE_HEAD if cntr == len(
+                self.snake) - 1 else self.CELL_SNAKE_BODY
+            cntr += 1
 
-        state[self.food[0]][self.food[1]] = 2
+        state[self.food[0] + 1][self.food[1] + 1] = self.CELL_FOOD
         return state
-

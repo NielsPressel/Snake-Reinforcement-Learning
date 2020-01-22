@@ -1,3 +1,4 @@
+import time
 
 
 class Evaluation:
@@ -7,19 +8,21 @@ class Evaluation:
         self.agent = agent
         self.agent.load(weights_file_path)
 
-    def evaluate(self, max_rounds=1, max_steps=10_000, visualize=False, plot_func=None):
+    def evaluate(self, max_rounds=1, max_steps=10_000, visualize=False, plot_func=None, step_delay=None):
         self.agent.training = False
         env = self.create_env_function()
 
         fail_counter = 0
-        
+
         for i in range(max_rounds):
             state = env.reset()
             episode_reward = 0
             episode_rewards = []
             episode_steps = []
-    
+
             for step in range(max_steps):
+                if step_delay:
+                    time.sleep(step_delay)
                 if visualize:
                     env.render()
                 action = self.agent.act(state)
@@ -30,12 +33,12 @@ class Evaluation:
                     episode_rewards.append(episode_reward)
                     episode_steps.append(step)
                     episode_reward = 0
+                    state = env.reset()
                     if plot_func:
                         plot_func(episode_rewards, episode_steps)
-                    state = env.reset()
                 else:
                     state = next_state
-    
+
             if plot_func:
                 plot_func(episode_rewards, episode_steps, False)
 
