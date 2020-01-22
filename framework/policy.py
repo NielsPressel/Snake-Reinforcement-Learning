@@ -1,6 +1,12 @@
 import random
 import numpy as np
+from collections import namedtuple
+
 from framework.core import Policy
+
+
+EpsilonAdjustmentInfo = namedtuple('EpsilonAdjustmentInfo', ['epsilon_start', 'epsilon_end', 'step_count',
+                                                             'interpolation_type'])
 
 
 class EpsilonGreedy(Policy):

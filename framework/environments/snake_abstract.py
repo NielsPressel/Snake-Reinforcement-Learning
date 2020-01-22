@@ -27,7 +27,7 @@ class SnakeAbstract(Environment):
 
     @classmethod
     def create(cls, rewards=None):
-        return cls(1000, 1000, 1, rewards)
+        return cls(1000, 1000, 2, rewards)
 
     def __init__(self, width, height, frame_count, rewards):
         self.width = width

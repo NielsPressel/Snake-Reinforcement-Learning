@@ -25,7 +25,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Model
 
 from framework.core import Agent
-from framework.policy import EpsilonGreedy, Greedy
+from framework.policy import EpsilonGreedy, Greedy, EpsilonAdjustmentInfo
 from framework.memory import PrioritizedExperienceReplay
 
 
@@ -53,12 +53,13 @@ class DQN(Agent):
     """
 
     def __init__(self, model, actions, optimizer=None, policy=None, mem_size=100_000, target_update=10, gamma=0.99,
-                 batch_size=64, nsteps=1):
+                 batch_size=64, nsteps=1, policy_adjustment=None):
 
         self.actions = actions
         self.optimizer = Adam(lr=3e-3) if optimizer is None else optimizer
 
         self.policy = EpsilonGreedy(0.1) if policy is None else policy
+        self.policy_adjustment = policy_adjustment
         self.eval_policy = Greedy()
 
         self.mem_size = mem_size
@@ -129,6 +130,12 @@ class DQN(Agent):
             mw = np.array(self.model.get_weights())
             tmw = np.array(self.target_model.get_weights())
             self.target_model.set_weights(self.target_network_update * mw + (1 - self.target_network_update) * tmw)
+
+        if self.policy_adjustment is not None:
+            if isinstance(self.policy, EpsilonGreedy) and isinstance(self.policy_adjustment, EpsilonAdjustmentInfo):
+                if self.policy_adjustment.interpolation_type == 'linear' and step <= self.policy_adjustment.step_count:
+                    self.policy.epsilon = ((self.policy_adjustment.epsilon_end - self.policy_adjustment.epsilon_start) / self.policy_adjustment.step_count) * step + self.policy_adjustment.epsilon_start
+                    print(self.policy.epsilon, step)
 
         # Train even when memory has fewer than the specified batch_size
         batch_size = min(len(self.memory), self.batch_size)

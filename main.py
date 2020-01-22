@@ -9,11 +9,11 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 
 from framework.agents.dqn import DQN
-from framework.environements.snake_abstract import SnakeAbstract
-from framework.environements.snake_simple import SnakeSimple
-from framework.environements.snake import Snake
+from framework.environments.snake_abstract import SnakeAbstract
+from framework.environments.snake_simple import SnakeSimple
+from framework.environments.snake import Snake
 from framework.training import Training
-from framework.policy import EpsilonGreedy
+from framework.policy import EpsilonGreedy, EpsilonAdjustmentInfo
 
 from framework.evaluation import Evaluation
 
@@ -86,7 +86,7 @@ def main():
 
     model = Sequential(
         [
-            Conv2D(32, kernel_size=(3, 3), strides=(1, 1), input_shape=(1, 22, 22), activation='relu', data_format='channels_first'),
+            Conv2D(32, kernel_size=(3, 3), strides=(1, 1), input_shape=(2, 22, 22), activation='relu', data_format='channels_first'),
             Conv2D(64, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
             Flatten(),
             Dense(256, activation='relu'),
@@ -94,7 +94,8 @@ def main():
     )
 
     agent = DQN(model, 3, optimizer=Adam(lr=LEARNING_RATE), policy=EpsilonGreedy(0.25), mem_size=MEMORY_SIZE,
-                target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS)
+                target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS,
+                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 150_000, 'linear'))
 
     if not evaluate:
         path = create_session_info("Snake Abstract", model, LEARNING_RATE, GAMMA, N_STEPS, TARGET_NETWORK_UPDATE,
