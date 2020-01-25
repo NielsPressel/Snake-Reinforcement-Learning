@@ -1,5 +1,7 @@
 from framework.core import Transition
 import sys
+import os
+import re
 
 
 class Training:
@@ -9,9 +11,9 @@ class Training:
         self.agent = agent
 
     def train(self, max_steps=100_000, instances=1, visualize=False, plot_func=None, max_subprocesses=0,
-              checkpnt_func=None, path="", rewards=None):
+              checkpnt_func=None, path="", rewards=None, resume=False):
         if max_subprocesses == 0:
-            self._sp_train(max_steps, instances, visualize, plot_func, checkpnt_func, path, rewards)
+            self._sp_train(max_steps, instances, visualize, plot_func, checkpnt_func, path, rewards, resume)
 
     def evaluate(self, max_steps=10_000, visualize=False, plot_func=None):
         self.agent.training = False
@@ -40,7 +42,7 @@ class Training:
         if plot_func:
             plot_func(episode_rewards, episode_steps, True)
 
-    def _sp_train(self, max_steps, instances, visualize, plot, checkpnt_func, path, rewards):
+    def _sp_train(self, max_steps, instances, visualize, plot, checkpnt_func, path, rewards, resume):
         """Trains using a single process."""
         # Keep track of rewards per episode per instance
         episode_reward_sequences = [[] for i in range(instances)]
@@ -50,8 +52,18 @@ class Training:
         # Create and initialize environment instances
         envs = [self.create_env_func(rewards=rewards) for i in range(instances)]
         states = [env.reset() for env in envs]
+        curr_step = 0
 
-        for step in range(max_steps):
+        if resume:
+            full_path = os.path.join(path, 'checkpoints')
+            file_list = [f for f in os.listdir(full_path)]
+            for f in file_list:
+                if f.find('.dat.data') != -1:
+                    file = os.path.join(full_path, f.split('.data')[0])
+                    self.agent.load(file)
+                    curr_step = int(re.findall(r'\d+', f.split('.data')[0])[0])
+
+        for step in range(curr_step, max_steps):
             for i in range(instances):
                 if visualize:
                     envs[i].render()

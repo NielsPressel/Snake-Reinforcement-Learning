@@ -135,7 +135,6 @@ class DQN(Agent):
             if isinstance(self.policy, EpsilonGreedy) and isinstance(self.policy_adjustment, EpsilonAdjustmentInfo):
                 if self.policy_adjustment.interpolation_type == 'linear' and step <= self.policy_adjustment.step_count:
                     self.policy.epsilon = ((self.policy_adjustment.epsilon_end - self.policy_adjustment.epsilon_start) / self.policy_adjustment.step_count) * step + self.policy_adjustment.epsilon_start
-                    print(self.policy.epsilon, step)
 
         # Train even when memory has fewer than the specified batch_size
         batch_size = min(len(self.memory), self.batch_size)
@@ -152,7 +151,6 @@ class DQN(Agent):
             actions = np.argmax(q_values, axis=1)
             target_q_values = self.target_model.predict_on_batch(np.array(non_final_last_next_states))
             selected_target_q_vals = target_q_values[range(len(target_q_values)), actions]
-            selected_target_q_vals = self.target_model.predict_on_batch(np.array(non_final_last_next_states)).max(1)
             non_final_mask = list(map(lambda s: s is not None, end_state_batch))
             target_qvals[non_final_mask] = selected_target_q_vals
 

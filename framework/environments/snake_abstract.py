@@ -81,7 +81,7 @@ class SnakeAbstract(Environment):
         dist = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
 
         if dist < self.distance:
-            reward = self.reward_dict['dec_distance']
+            reward = self.reward_dict['dec_distance'] * max(1.0, float(len(self.snake)) * 0.75)
         else:
             reward = self.reward_dict['inc_distance']
 
@@ -91,7 +91,7 @@ class SnakeAbstract(Environment):
         if self.snake[-1] == self.food:
             self.food = (random.randint(0, 19), random.randint(0, 19))
             pop = False
-            reward = self.reward_dict['food']
+            reward = self.reward_dict['food'] * float(len(self.snake))
             self.distance = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
 
         if not self.direction_state == self.STATE_STILL and pop:

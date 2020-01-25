@@ -78,7 +78,7 @@ def main():
     TARGET_NETWORK_UPDATE = 10
     MEMORY_SIZE = 100_000
     BATCH_SIZE = 256
-    STEP_COUNT = 300_000
+    STEP_COUNT = 500_000
     INSTANCE_COUNT = 1
     N_STEPS = 2
 
@@ -95,18 +95,19 @@ def main():
 
     agent = DQN(model, 3, optimizer=Adam(lr=LEARNING_RATE), policy=EpsilonGreedy(0.25), mem_size=MEMORY_SIZE,
                 target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS,
-                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 150_000, 'linear'))
+                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 400_000, 'linear'))
 
     if not evaluate:
         path = create_session_info("Snake Abstract", model, LEARNING_RATE, GAMMA, N_STEPS, TARGET_NETWORK_UPDATE,
                                    MEMORY_SIZE, BATCH_SIZE, STEP_COUNT, INSTANCE_COUNT)
+        #path = 'C:\\Users\\niels\\Documents\\Facharbeit\\weight_data\\2020-01-23 18-51-24'
         training = Training(SnakeAbstract.create, agent)
         training.train(STEP_COUNT, INSTANCE_COUNT, visualize=False, plot_func=None, checkpnt_func=chkpnt, path=path,
-                       rewards={'death': -70.0, 'food': 40.0, 'dec_distance': 3.0, 'inc_distance': -15.0})
+                       rewards={'death': -70.0, 'food': 40.0, 'dec_distance': 3.0, 'inc_distance': -15.0}, resume=False)
         agent.save(os.path.join(path, "weights.dat"), True)
         training.evaluate(10_000, visualize=True, plot_func=plot_eval)
     else:
-        evaluation = Evaluation(SnakeAbstract.create, agent, "checkpoint-180000.dat")
+        evaluation = Evaluation(SnakeAbstract.create, agent, "checkpoint-358000.dat")
         fails = evaluation.evaluate(max_rounds=20, max_steps=1_000, visualize=True, plot_func=plot_eval,
                                     step_delay=None)
         print("Failed %d times" % fails)

@@ -14,6 +14,8 @@ class Evaluation:
 
         fail_counter = 0
 
+        snake_lens = []
+
         for i in range(max_rounds):
             state = env.reset()
             episode_reward = 0
@@ -33,13 +35,16 @@ class Evaluation:
                     episode_rewards.append(episode_reward)
                     episode_steps.append(step)
                     episode_reward = 0
+                    snake_lens.append(len(env.snake))
                     state = env.reset()
                     if plot_func:
                         plot_func(episode_rewards, episode_steps)
                 else:
                     state = next_state
 
+            snake_lens.append(len(env.snake))
             if plot_func:
                 plot_func(episode_rewards, episode_steps, False)
 
+        print(float(sum(snake_lens)) / float(len(snake_lens)))
         return fail_counter
