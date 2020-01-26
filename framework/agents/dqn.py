@@ -150,7 +150,12 @@ class DQN(Agent):
             q_values = self.model.predict_on_batch(np.array(non_final_last_next_states))
             actions = np.argmax(q_values, axis=1)
             target_q_values = self.target_model.predict_on_batch(np.array(non_final_last_next_states))
+
+            if tf.executing_eagerly():
+                target_q_values = target_q_values.numpy()
+
             selected_target_q_vals = target_q_values[range(len(target_q_values)), actions]
+
             non_final_mask = list(map(lambda s: s is not None, end_state_batch))
             target_qvals[non_final_mask] = selected_target_q_vals
 

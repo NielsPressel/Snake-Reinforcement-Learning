@@ -4,6 +4,9 @@
 import os
 import matplotlib.pyplot as plt
 import tensorflow as tf
+
+tf.compat.v1.disable_eager_execution()
+
 from tensorflow.keras.layers import Dense, Flatten, Conv2D
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
@@ -67,47 +70,45 @@ def chkpnt(path, agent, step):
 
 
 def main():
-    tf.config.gpu.set_per_process_memory_growth(True)
-    print("Tensorflow: ", tf.__version__)
+    print("Tensorflow: ", tf.version.VERSION)
 
-    if tf.test.is_gpu_available(cuda_only=True, min_cuda_compute_capability=None):
-        print("Using GPU version")
+    tf.config.list_physical_devices('GPU')
 
     LEARNING_RATE = 3e-3
     GAMMA = 0.95
     TARGET_NETWORK_UPDATE = 10
     MEMORY_SIZE = 100_000
     BATCH_SIZE = 256
-    STEP_COUNT = 500_000
+    STEP_COUNT = 1_000_000
     INSTANCE_COUNT = 1
     N_STEPS = 2
 
-    evaluate = False
+    evaluate = True
 
     model = Sequential(
         [
-            Conv2D(32, kernel_size=(3, 3), strides=(1, 1), input_shape=(2, 22, 22), activation='relu', data_format='channels_first'),
-            Conv2D(64, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
+            Conv2D(40, kernel_size=(3, 3), strides=(1, 1), input_shape=(2, 22, 22), activation='relu', data_format='channels_first'),
+            Conv2D(80, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
             Flatten(),
-            Dense(256, activation='relu'),
+            Dense(320, activation='relu'),
         ]
     )
 
     agent = DQN(model, 3, optimizer=Adam(lr=LEARNING_RATE), policy=EpsilonGreedy(0.25), mem_size=MEMORY_SIZE,
                 target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS,
-                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 400_000, 'linear'))
+                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 800_000, 'linear'))
 
     if not evaluate:
         path = create_session_info("Snake Abstract", model, LEARNING_RATE, GAMMA, N_STEPS, TARGET_NETWORK_UPDATE,
                                    MEMORY_SIZE, BATCH_SIZE, STEP_COUNT, INSTANCE_COUNT)
         #path = 'C:\\Users\\niels\\Documents\\Facharbeit\\weight_data\\2020-01-23 18-51-24'
         training = Training(SnakeAbstract.create, agent)
-        training.train(STEP_COUNT, INSTANCE_COUNT, visualize=False, plot_func=None, checkpnt_func=chkpnt, path=path,
+        training.train(STEP_COUNT, INSTANCE_COUNT, visualize=False, plot_func=None, max_subprocesses=0, checkpnt_func=chkpnt, path=path,
                        rewards={'death': -70.0, 'food': 40.0, 'dec_distance': 3.0, 'inc_distance': -15.0}, resume=False)
         agent.save(os.path.join(path, "weights.dat"), True)
         training.evaluate(10_000, visualize=True, plot_func=plot_eval)
     else:
-        evaluation = Evaluation(SnakeAbstract.create, agent, "checkpoint-358000.dat")
+        evaluation = Evaluation(SnakeAbstract.create, agent, "weights.dat")
         fails = evaluation.evaluate(max_rounds=20, max_steps=1_000, visualize=True, plot_func=plot_eval,
                                     step_delay=None)
         print("Failed %d times" % fails)
