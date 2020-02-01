@@ -87,7 +87,8 @@ def main():
 
     model = Sequential(
         [
-            Conv2D(40, kernel_size=(3, 3), strides=(1, 1), input_shape=(2, 22, 22), activation='relu', data_format='channels_first'),
+            Conv2D(40, kernel_size=(3, 3), strides=(1, 1), input_shape=(2, 22, 22), activation='relu',
+                   data_format='channels_first'),
             Conv2D(80, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
             Flatten(),
             Dense(320, activation='relu'),
@@ -95,15 +96,15 @@ def main():
     )
 
     agent = EpochalDQN(model, 3, optimizer=Adam(lr=LEARNING_RATE), policy=EpsilonGreedy(0.25), mem_size=MEMORY_SIZE,
-                target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS,
-                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 800_000, 'linear'))
+                       target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS,
+                       policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 800_000, 'linear'))
 
     if not evaluate:
         path = create_session_info("Snake Abstract", model, LEARNING_RATE, GAMMA, N_STEPS, TARGET_NETWORK_UPDATE,
-                                  MEMORY_SIZE, BATCH_SIZE, STEP_COUNT, INSTANCE_COUNT)
+                                   MEMORY_SIZE, BATCH_SIZE, STEP_COUNT, INSTANCE_COUNT)
         training = Training(SnakeAbstract.create, agent)
         training.train_epochal(STEP_COUNT, max_subprocesses=0, checkpnt_func=chkpnt, path=path,
-                       rewards={'death': -70.0, 'food': 40.0, 'dec_distance': 3.0, 'inc_distance': -15.0})
+                               rewards={'death': -70.0, 'food': 40.0, 'dec_distance': 3.0, 'inc_distance': -15.0})
         agent.save(os.path.join(path, "weights.dat"), True)
         training.evaluate(10_000, visualize=True, plot_func=plot_eval)
     else:

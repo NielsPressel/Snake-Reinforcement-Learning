@@ -1,12 +1,31 @@
+"""This file implements a simple snake environment.
+
+    Typical usage example:
+    env = SnakeSimple.create(rewards={'death': -10.0, ...})
+    state = env.reset()
+"""
+
 import random
 import numpy as np
 import pygame
 from pygame.locals import *
-from collections import deque
 from framework.core import Environment
 
 
 class SnakeSimple(Environment):
+    """Simple Snake environment for fast learning.
+
+    Attributes:
+        width (int): Width of the pygame window
+        height (int) : Height of the pygame window
+        snake (array): Abstract snake representation, each list element is a two-element tuple for the x and y
+                       coordinates of the snake body element.
+        food (tuple): Abstract food representation, tuple with x and y coordinates
+        direction_state (Enum): The current direction the snake is heading towards
+        display_surf (pygame display): The surface to render on
+        distance (float): Current distance to the food.
+        reward_dict (dictionary): collection of rewards (eg. for death, food)
+    """
     STATE_RIGHT = 0
     STATE_LEFT = 1
     STATE_UP = 2
@@ -15,9 +34,25 @@ class SnakeSimple(Environment):
 
     @classmethod
     def create(cls, rewards=None):
+        """This method creates the environment. Pass this function into the Training class.
+
+        Args:
+            rewards (dictionary): collection of rewards for different situations the agent could encounter in that
+                                  environment
+
+        Returns:
+            A new object of instance SnakeSimple
+        """
         return cls(1000, 1000, rewards)
 
     def __init__(self, width, height, rewards):
+        """SnakeSimple constructor. Do not use that directly, rather use create().
+
+        Args:
+            width (int): width of the window if the game gets rendered
+            height (int): height of the window if the game gets rendered
+            rewards (dictionary): collection of rewards (see create())
+        """
         self.width = width
         self.height = height
 
@@ -26,22 +61,34 @@ class SnakeSimple(Environment):
         self.direction_state = self.STATE_STILL
         self.display_surf = None
         self.distance = 0
-        self.steps_since_food = 0
         self.reward_dict = {'death': -10.0, 'food': 20.0, 'dec_distance': 3.0,
                             'inc_distance': -5.0} if rewards is None else rewards
         print(self.reward_dict)
 
     def reset(self):
+        """Resets the current environment to the default state.
+
+        Returns:
+            The new state that was created by resetting.
+        """
         self.snake = [(random.randint(0, 19), random.randint(0, 19))]
         self.food = (random.randint(0, 19), random.randint(0, 19))
         self.direction_state = self.STATE_STILL
         self.distance = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
-        self.steps_since_food = 0
 
         s = self._build_current_state()
         return s
 
     def step(self, action):
+        """Moves the snake one step based on the specified action.
+
+        Args:
+            action (int): The action to do represented as a number from 0 to 3.
+
+        Returns:
+            (np.ndarray, float, boolean, None) Next state, reward, if this was a terminal step, information about the
+                                               step
+        """
         done = False
 
         if action == self.STATE_RIGHT:
@@ -98,6 +145,7 @@ class SnakeSimple(Environment):
         return s, reward, done, None
 
     def render(self):
+        """Renders the current state of the game using pygame."""
         if self.display_surf is None:
             self.display_surf = pygame.display.set_mode((self.width, self.height))
 
@@ -124,6 +172,12 @@ class SnakeSimple(Environment):
         pygame.display.update()
 
     def _build_current_state(self):
+        """Builds the current state of the game into a simple representation.
+
+        Returns:
+            (np.ndarray) Simple one dimensional array with six elements, which represent the distance to each wall and
+                         x and y distances to the food.
+        """
         state = np.zeros(6)
         state[0] = self.snake[-1][1]
         state[1] = 19 - self.snake[-1][1]

@@ -246,15 +246,19 @@ class EpochalDQN(DQN):
         length = x_data.shape[0]
         idxs = np.arange(0, length)
 
+        # Train for 10 epochs on the batch of data
         for i in range(0, 10):
-            np.random.shuffle(idxs)
+            np.random.shuffle(idxs) # Shuffle at the beginning of every epoch
             x_data = x_data[idxs]
             y_data = y_data[idxs]
 
+            # Split the one batch of data into 10 mini batches
             x_batch = np.array_split(x_data, 10)
             y_batch = np.array_split(y_data, 10)
 
+            # Train on each batch
             for x in range(0, 10):
                 self.model.train_on_batch(x_batch[x], y_batch[x])
 
+        # Clear memory after every training step
         self.memory.clear()

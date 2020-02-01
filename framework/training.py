@@ -13,13 +13,38 @@ RewardState = namedtuple('RewardState', ['reward', 'state'])
 
 
 class Training:
+    """Training class for managing the training process.
+
+    Attributes:
+        create_env_func (lambda): The function to create the environment from
+        agent (Agent): The agent to train
+    """
 
     def __init__(self, create_env_func, agent):
+        """Training constructor
+
+        Args:
+            create_env_func (lambda): The function to create the environment from
+            agent (Agent): The agent to train
+        """
         self.create_env_func = create_env_func
         self.agent = agent
 
     def train(self, max_steps=100_000, instances=1, visualize=False, plot_func=None, max_subprocesses=0,
               checkpnt_func=None, path="", rewards=None, resume=False):
+        """Trains the agent to better perform in the specified environment.
+
+        Args:
+            max_steps (int): Maximum amount of training steps
+            instances (int): Maximum amount of environment instances to collect data concurrently
+            visualize (bool): Decides wether to render the game while training or not
+            plot_func (lambda): Function to plot the reward
+            max_subprocesses (int): Number of subprocesses that can be created by the training process
+            checkpnt_func (lamda): Function to save the state of the agent
+            path (string): Folder to save the checkpoint data to
+            rewards (dictionary): Collection of rewards needed to instantiate the environment
+            resume (bool): Decides wether a new training process is started or an old one gets resumed
+        """
         if max_subprocesses == 0:
             self._sp_train(max_steps, instances, visualize, plot_func, checkpnt_func, path, rewards, resume)
         else:
@@ -27,6 +52,15 @@ class Training:
                            resume)
 
     def train_epochal(self, max_steps=100_00, max_subprocesses=0, checkpnt_func=None, path="", rewards=None):
+        """Trains the agent like train() except data collection and training alternate.
+
+        Args:
+            max_steps (int): Maximum amount of training steps
+            max_subprocesses (int): Number of subprocesses that can be created by the training process
+            checkpnt_func (lambda): Function to save the state of the agent
+            path (string): Folder to save the checkpoint data to
+            rewards (dictionary): Collection of rewards needed to instantiate the environment
+        """
         if max_subprocesses == 0:
             self._sp_train_epochal(max_steps, checkpnt_func, path, rewards)
         elif max_subprocesses >= 1:
