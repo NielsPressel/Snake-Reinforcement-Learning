@@ -84,6 +84,9 @@ class Memory:
     def get(self, *args):
         raise NotImplementedError()
 
+    def clear(self):
+        raise NotImplementedError()
+
     def __len__(self):
         raise NotImplementedError()
 

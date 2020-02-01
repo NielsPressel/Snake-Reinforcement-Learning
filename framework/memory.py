@@ -64,6 +64,10 @@ class ReplayMemory(Memory):
         traces = random.sample(self.traces, batch_size)
         return unpack(traces)
 
+    def clear(self):
+        self.traces.clear()
+        self.buffer.clear()
+
     def __len__(self):
         """Returns length of trace buffer."""
         return len(self.traces)
@@ -132,6 +136,12 @@ class PrioritizedExperienceReplay(Memory):
         self.traces_idxs = np.random.choice(len(self.traces), batch_size, p=probs, replace=False)
         traces = [self.traces[idx] for idx in self.traces_idxs]
         return unpack(traces)
+
+    def clear(self):
+        self.traces.clear()
+        self.buffer.clear()
+        self.priorities = np.array([])
+        self.traces_idxs = []
 
     def last_traces_idxs(self):
         """Returns the indexes associated with the last retrieved traces."""

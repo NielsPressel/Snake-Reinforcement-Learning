@@ -156,8 +156,8 @@ class SnakeAbstract(Environment):
 
         cntr = 0
         for item in self.snake:
-            state[item[0] + 1][item[1] + 1] = self.CELL_SNAKE_HEAD if cntr == len(
-                self.snake) - 1 else self.CELL_SNAKE_BODY
+            state[item[0] + 1][item[1] + 1] = self.CELL_SNAKE_HEAD if cntr == \
+                                                                      len(self.snake) - 1 else self.CELL_SNAKE_BODY
             cntr += 1
 
         state[self.food[0] + 1][self.food[1] + 1] = self.CELL_FOOD

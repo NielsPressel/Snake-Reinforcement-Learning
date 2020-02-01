@@ -134,7 +134,9 @@ class DQN(Agent):
         if self.policy_adjustment is not None:
             if isinstance(self.policy, EpsilonGreedy) and isinstance(self.policy_adjustment, EpsilonAdjustmentInfo):
                 if self.policy_adjustment.interpolation_type == 'linear' and step <= self.policy_adjustment.step_count:
-                    self.policy.epsilon = ((self.policy_adjustment.epsilon_end - self.policy_adjustment.epsilon_start) / self.policy_adjustment.step_count) * step + self.policy_adjustment.epsilon_start
+                    self.policy.epsilon = ((self.policy_adjustment.epsilon_end - self.policy_adjustment.epsilon_start)
+                                           / self.policy_adjustment.step_count) * step + \
+                                          self.policy_adjustment.epsilon_start
 
         # Train even when memory has fewer than the specified batch_size
         batch_size = min(len(self.memory), self.batch_size)
@@ -178,19 +180,81 @@ class DQN(Agent):
         self.model.train_on_batch(np.array(state_batch), np.stack(loss_data).transpose())
 
 
-class Random(Agent):
-
-    def __init__(self, actions):
-        self.actions = actions
-
-    def act(self, state):
-        return random.randrange(4)
-
-    def push_observation(self, transition):
-        pass
+class EpochalDQN(DQN):
 
     def train(self, step):
-        pass
+        if len(self.memory) == 0:
+            return
 
-    def save(self, filename):
-        pass
+        # Update target network
+        if self.target_network_update >= 1 and step % self.target_network_update == 0:
+            # Perform a hard update
+            self.target_model.set_weights(self.model.get_weights())
+        elif self.target_network_update < 1:
+            # Perform a soft update
+            mw = np.array(self.model.get_weights())
+            tmw = np.array(self.target_model.get_weights())
+            self.target_model.set_weights(self.target_network_update * mw + (1 - self.target_network_update) * tmw)
+
+        if self.policy_adjustment is not None:
+            if isinstance(self.policy, EpsilonGreedy) and isinstance(self.policy_adjustment, EpsilonAdjustmentInfo):
+                if self.policy_adjustment.interpolation_type == 'linear' and step <= self.policy_adjustment.step_count:
+                    self.policy.epsilon = ((self.policy_adjustment.epsilon_end - self.policy_adjustment.epsilon_start)
+                                           / self.policy_adjustment.step_count) * step + \
+                                          self.policy_adjustment.epsilon_start
+
+        # Train even when memory has fewer than the specified batch_size
+        batch_size = len(self.memory)
+
+        # Sample batch_size traces from memory
+        state_batch, action_batch, reward_batches, end_state_batch, not_done_mask = self.memory.get(batch_size)
+
+        # Compute the value of the last next states
+        target_qvals = np.zeros(batch_size)
+        non_final_last_next_states = [es for es in end_state_batch if es is not None]
+
+        if len(non_final_last_next_states) > 0:
+            q_values = self.model.predict_on_batch(np.array(non_final_last_next_states))
+            actions = np.argmax(q_values, axis=1)
+            target_q_values = self.target_model.predict_on_batch(np.array(non_final_last_next_states))
+
+            if tf.executing_eagerly():
+                target_q_values = target_q_values.numpy()
+
+            selected_target_q_vals = target_q_values[range(len(target_q_values)), actions]
+
+            non_final_mask = list(map(lambda s: s is not None, end_state_batch))
+            target_qvals[non_final_mask] = selected_target_q_vals
+
+        # Compute n-step discounted return
+        # If episode ended within any sampled nstep trace - zero out remaining rewards
+        for n in reversed(range(self.nsteps)):
+            rewards = np.array([b[n] for b in reward_batches])
+            target_qvals *= np.array([t[n] for t in not_done_mask])
+            target_qvals = rewards + (self.gamma * target_qvals)
+
+        # Compile information needed by the custom loss function
+        loss_data = [action_batch, target_qvals]
+
+        # If using PrioritizedExperienceReplay then we need to provide the trace indexes
+        # to the loss function as well so we can update the priorities of the traces
+        if isinstance(self.memory, PrioritizedExperienceReplay):
+            loss_data.append(self.memory.last_traces_idxs())
+
+        x_data = np.array(state_batch)
+        y_data = np.stack(loss_data).transpose()
+        length = x_data.shape[0]
+        idxs = np.arange(0, length)
+
+        for i in range(0, 10):
+            np.random.shuffle(idxs)
+            x_data = x_data[idxs]
+            y_data = y_data[idxs]
+
+            x_batch = np.array_split(x_data, 10)
+            y_batch = np.array_split(y_data, 10)
+
+            for x in range(0, 10):
+                self.model.train_on_batch(x_batch[x], y_batch[x])
+
+        self.memory.clear()

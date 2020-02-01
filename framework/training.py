@@ -23,7 +23,14 @@ class Training:
         if max_subprocesses == 0:
             self._sp_train(max_steps, instances, visualize, plot_func, checkpnt_func, path, rewards, resume)
         else:
-            self._mp_train(max_steps, instances, max_subprocesses, visualize, plot_func, checkpnt_func, path, rewards, resume)
+            self._mp_train(max_steps, instances, max_subprocesses, visualize, plot_func, checkpnt_func, path, rewards,
+                           resume)
+
+    def train_epochal(self, max_steps=100_00, max_subprocesses=0, checkpnt_func=None, path="", rewards=None):
+        if max_subprocesses == 0:
+            self._sp_train_epochal(max_steps, checkpnt_func, path, rewards)
+        elif max_subprocesses >= 1:
+            self._mp_train_epochal(max_steps, max_subprocesses, checkpnt_func, path, rewards)
 
     def evaluate(self, max_steps=10_000, visualize=False, plot_func=None):
         self.agent.training = False
@@ -184,6 +191,40 @@ class Training:
 
         if plot:
             plot(episode_reward_sequences, episode_step_sequences, done=True)
+
+    def _sp_train_epochal(self, max_steps, checkpnt_func, path, rewards):
+        episode_reward_sequences = []
+        episode_step_sequences = []
+        episode_reward = 0
+
+        env = self.create_env_func(rewards=rewards)
+        state = env.reset()
+
+        for step in range(0, max_steps):
+            action = self.agent.act(state)
+            next_state, reward, done, _ = env.step(action)
+            self.agent.push_observation(Transition(state, action, reward, None if done else next_state))
+            episode_reward += reward
+
+            if done:
+                episode_reward_sequences.append(episode_reward)
+                episode_step_sequences.append(step)
+                episode_reward = 0
+
+                state = env.reset()
+            else:
+                state = next_state
+
+            if step % 1000 == 0:
+                self.agent.train(step / 1000)
+                if checkpnt_func:
+                    checkpnt_func(path, self.agent, step)
+
+            sys.stdout.write("\rDone with %.1f percent of the training" % ((float(step) / float(max_steps)) * 100.0))
+            sys.stdout.flush()
+
+    def _mp_train_epochal(self, max_steps, max_subprocesses, checkpnt_func, path, rewards):
+        raise NotImplementedError()
 
 
 def _train(create_env, instance_ids, max_steps, pipes, visualize, rewards):
