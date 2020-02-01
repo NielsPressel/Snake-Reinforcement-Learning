@@ -76,7 +76,7 @@ def main():
 
     LEARNING_RATE = 3e-3
     GAMMA = 0.95
-    TARGET_NETWORK_UPDATE = 0.75
+    TARGET_NETWORK_UPDATE = 3
     MEMORY_SIZE = 100_000
     BATCH_SIZE = 256
     STEP_COUNT = 5_000_000
@@ -93,15 +93,24 @@ def main():
             Flatten(),
             Dense(320, activation='relu'),
         ]
+
     )
+
+    """
+    
+    Dense(32, input_shape=(6, ), activation='relu'),
+    Dense(32, activation='relu'),
+    Dense(16, activation='relu'),
+    Dense(16, activation='relu'),
+    """
 
     agent = EpochalDQN(model, 3, optimizer=Adam(lr=LEARNING_RATE), policy=EpsilonGreedy(0.25), mem_size=MEMORY_SIZE,
                        target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS,
-                       policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 800_000, 'linear'))
+                       policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.1, 10_000, 'sqrt'))
 
     if not evaluate:
         path = create_session_info("Snake Abstract", model, LEARNING_RATE, GAMMA, N_STEPS, TARGET_NETWORK_UPDATE,
-                                   MEMORY_SIZE, BATCH_SIZE, STEP_COUNT, INSTANCE_COUNT)
+                                  MEMORY_SIZE, BATCH_SIZE, STEP_COUNT, INSTANCE_COUNT)
         training = Training(SnakeAbstract.create, agent)
         training.train_epochal(STEP_COUNT, max_subprocesses=0, checkpnt_func=chkpnt, path=path,
                                rewards={'death': -70.0, 'food': 40.0, 'dec_distance': 3.0, 'inc_distance': -15.0})

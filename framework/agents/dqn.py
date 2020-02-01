@@ -133,10 +133,18 @@ class DQN(Agent):
 
         if self.policy_adjustment is not None:
             if isinstance(self.policy, EpsilonGreedy) and isinstance(self.policy_adjustment, EpsilonAdjustmentInfo):
-                if self.policy_adjustment.interpolation_type == 'linear' and step <= self.policy_adjustment.step_count:
-                    self.policy.epsilon = ((self.policy_adjustment.epsilon_end - self.policy_adjustment.epsilon_start)
-                                           / self.policy_adjustment.step_count) * step + \
-                                          self.policy_adjustment.epsilon_start
+                if step <= self.policy_adjustment.step_count:
+                    if self.policy_adjustment.interpolation_type == 'linear':
+                        self.policy.epsilon = ((self.policy_adjustment.epsilon_end -
+                                                self.policy_adjustment.epsilon_start)
+                                               / self.policy_adjustment.step_count) * step + \
+                                              self.policy_adjustment.epsilon_start
+                    elif self.policy_adjustment.interpolation_type == 'sqrt':
+                        self.policy.epsilon = (float(
+                            self.policy_adjustment.epsilon_start - self.policy_adjustment.epsilon_end) / np.sqrt(
+                            self.policy_adjustment.step_count)) * np.sqrt(
+                            self.policy_adjustment.step_count - step) + self.policy_adjustment.epsilon_end
+                        print(self.policy.epsilon)
 
         # Train even when memory has fewer than the specified batch_size
         batch_size = min(len(self.memory), self.batch_size)
@@ -187,7 +195,7 @@ class EpochalDQN(DQN):
             return
 
         # Update target network
-        if self.target_network_update >= 1 and step % self.target_network_update == 0:
+        if self.target_network_update >= 1 and (step / 1000) % self.target_network_update == 0:
             # Perform a hard update
             self.target_model.set_weights(self.model.get_weights())
         elif self.target_network_update < 1:
@@ -198,10 +206,18 @@ class EpochalDQN(DQN):
 
         if self.policy_adjustment is not None:
             if isinstance(self.policy, EpsilonGreedy) and isinstance(self.policy_adjustment, EpsilonAdjustmentInfo):
-                if self.policy_adjustment.interpolation_type == 'linear' and step <= self.policy_adjustment.step_count:
-                    self.policy.epsilon = ((self.policy_adjustment.epsilon_end - self.policy_adjustment.epsilon_start)
-                                           / self.policy_adjustment.step_count) * step + \
-                                          self.policy_adjustment.epsilon_start
+                if step <= self.policy_adjustment.step_count:
+                    if self.policy_adjustment.interpolation_type == 'linear':
+                        self.policy.epsilon = ((self.policy_adjustment.epsilon_end -
+                                                self.policy_adjustment.epsilon_start)
+                                               / self.policy_adjustment.step_count) * step + \
+                                              self.policy_adjustment.epsilon_start
+                    elif self.policy_adjustment.interpolation_type == 'sqrt':
+                        self.policy.epsilon = (float(
+                            self.policy_adjustment.epsilon_start - self.policy_adjustment.epsilon_end) / np.sqrt(
+                            self.policy_adjustment.step_count)) * np.sqrt(
+                            self.policy_adjustment.step_count - step) + self.policy_adjustment.epsilon_end
+                        print(self.policy.epsilon)
 
         # Train even when memory has fewer than the specified batch_size
         batch_size = len(self.memory)
@@ -247,8 +263,8 @@ class EpochalDQN(DQN):
         idxs = np.arange(0, length)
 
         # Train for 10 epochs on the batch of data
-        for i in range(0, 10):
-            np.random.shuffle(idxs) # Shuffle at the beginning of every epoch
+        for i in range(0, 40):
+            np.random.shuffle(idxs)  # Shuffle at the beginning of every epoch
             x_data = x_data[idxs]
             y_data = y_data[idxs]
 

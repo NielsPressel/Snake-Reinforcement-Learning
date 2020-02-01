@@ -250,7 +250,7 @@ class Training:
                 state = next_state
 
             if step % 1000 == 0:
-                self.agent.train(step / 1000)
+                self.agent.train(step)
                 if checkpnt_func:
                     checkpnt_func(path, self.agent, step)
 
