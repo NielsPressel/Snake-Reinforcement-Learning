@@ -144,7 +144,6 @@ class DQN(Agent):
                             self.policy_adjustment.epsilon_start - self.policy_adjustment.epsilon_end) / np.sqrt(
                             self.policy_adjustment.step_count)) * np.sqrt(
                             self.policy_adjustment.step_count - step) + self.policy_adjustment.epsilon_end
-                        print(self.policy.epsilon)
 
         # Train even when memory has fewer than the specified batch_size
         batch_size = min(len(self.memory), self.batch_size)
@@ -217,7 +216,6 @@ class EpochalDQN(DQN):
                             self.policy_adjustment.epsilon_start - self.policy_adjustment.epsilon_end) / np.sqrt(
                             self.policy_adjustment.step_count)) * np.sqrt(
                             self.policy_adjustment.step_count - step) + self.policy_adjustment.epsilon_end
-                        print(self.policy.epsilon)
 
         # Train even when memory has fewer than the specified batch_size
         batch_size = len(self.memory)
@@ -263,7 +261,7 @@ class EpochalDQN(DQN):
         idxs = np.arange(0, length)
 
         # Train for 10 epochs on the batch of data
-        for i in range(0, 40):
+        for i in range(0, 20):
             np.random.shuffle(idxs)  # Shuffle at the beginning of every epoch
             x_data = x_data[idxs]
             y_data = y_data[idxs]

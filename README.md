@@ -35,6 +35,6 @@ For more complex problems you should definitely use at least one GPU for trainin
 
 * Snake Simple: Average length of about 5, no problems of finding the fruit. The AI just seems to run into the
 walls pretty often
-* Snake Abstract: Average length of 2.9, often gets stuck in running in circles
+* Snake Abstract: Average length of 2.9, often gets stuck at running in circles
 
 More precise description of the results coming soon...

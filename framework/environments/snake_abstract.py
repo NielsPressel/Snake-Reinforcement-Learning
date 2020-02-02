@@ -9,6 +9,21 @@ from framework.core import Environment
 
 
 class SnakeAbstract(Environment):
+    """An abstract Reinforcement Learning representation of the snake game.
+
+    Attributes:
+        width (int): Width of the pygame window
+        height (int): Height of the pygame window
+        frame_count (int): Number of consecutive frames that will make up the state
+        snake ((int, int)[]): Array representation of the snake with every element being a tuple (x, y)
+        food ((int, int)): Tuple (x, y) that represents the food
+        direction_state (enum): Current direction the snake is heading to
+        last_states (frame[]): Array of the last individual frames that make up the state
+        display_surf (pygame display): The surface to render to
+        distance (float): The current distance from the snake head to the food
+        reward_dict (dictionary): Collection of rewards that apply reward or punishment to the agent eg. for dieing
+    """
+
     STATE_RIGHT = 0
     STATE_DOWN = 1
     STATE_LEFT = 2
