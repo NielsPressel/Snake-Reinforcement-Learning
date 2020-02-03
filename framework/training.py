@@ -1,4 +1,5 @@
 from framework.core import Transition
+from framework.agents.dqn import MinibatchDQN
 
 import sys
 import os
@@ -124,7 +125,7 @@ class Training:
         episode_rewards = [0] * instances
 
         # Create and initialize environment instances
-        envs = [self.create_env_func(rewards=rewards) for i in range(instances)]
+        envs = [self.create_env_func(rewards=rewards) for _ in range(instances)]
         states = [env.reset() for env in envs]
         curr_step = 0
 
@@ -149,6 +150,10 @@ class Training:
                 # Store transition in memory
                 self.agent.push_observation(Transition(states[i], action, reward, None if done else next_state))
                 episode_rewards[i] += reward
+
+                if isinstance(self.agent, MinibatchDQN):
+                    self.agent.train_short_memory(states[i], action, reward, None if done else next_state)
+
                 if done:  # On terminal state reset the environment and save the cumulative reward
                     episode_reward_sequences[i].append(episode_rewards[i])
                     episode_step_sequences[i].append(step)
@@ -156,13 +161,21 @@ class Training:
                     if plot:  # Plot every step if plot function is given
                         plot(episode_reward_sequences, episode_step_sequences)
                     states[i] = envs[i].reset()
+
+                    if isinstance(self.agent, MinibatchDQN):
+                        self.agent.train(step)
+
                 else:  # Roll state
                     states[i] = next_state
 
             # Perform one step of the optimization
-            self.agent.train(step)
+
+            if not isinstance(self.agent, MinibatchDQN):
+                self.agent.train(step)
             sys.stdout.write("\rDone with %.1f percent of the training" % ((float(step) / float(max_steps)) * 100.0))
             sys.stdout.flush()
+
+
 
             # If checkpoint function is given save a checkpoint every 1000 steps
             if checkpnt_func:
