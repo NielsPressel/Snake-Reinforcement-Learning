@@ -4,9 +4,16 @@ from collections import namedtuple
 
 from framework.core import Policy
 
+"""---EpsilonAdjustmentInfo namedtuple---
+
+Use this to define the epsilon decay while training.
+"""
+
 
 EpsilonAdjustmentInfo = namedtuple('EpsilonAdjustmentInfo', ['epsilon_start', 'epsilon_end', 'step_count',
                                                              'interpolation_type'])
+
+"""---EpsilonGreedy class---"""
 
 
 class EpsilonGreedy(Policy):
@@ -34,6 +41,9 @@ class EpsilonGreedy(Policy):
         if random.random() > self.epsilon:
             return np.argmax(q_values)
         return random.randrange(len(q_values))
+
+
+"""---Greedy class---"""
 
 
 class Greedy(Policy):

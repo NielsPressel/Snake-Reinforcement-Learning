@@ -6,6 +6,9 @@ import pygame
 from pygame.locals import *
 
 from framework.core import Environment
+from framework.environments.snake_objects import *
+
+"""---SnakeAbstract class"""
 
 
 class SnakeAbstract(Environment):
@@ -42,15 +45,27 @@ class SnakeAbstract(Environment):
 
     @classmethod
     def create(cls, rewards=None):
-        return cls(1000, 1000, 2, rewards)
+        return cls(1000, 1000, 1, rewards)
 
     def __init__(self, width, height, frame_count, rewards):
         self.width = width
         self.height = height
         self.frame_count = frame_count
 
-        self.snake = [(random.randint(1, 18), random.randint(1, 18))]
-        self.food = (random.randint(0, 19), random.randint(0, 19))
+        multiplier_x = float(width) / 22.0
+        multiplier_y = float(height) / 22.0
+
+        self.snake = [SnakeHead((random.randint(0, 19), random.randint(0, 19)), visualize=False, size=(40, 40),
+                                offset=(
+                                    multiplier_x + ((multiplier_x - 40) / 2.0),
+                                    multiplier_y + ((multiplier_y - 40) / 2.0)),
+                                multiplier=multiplier_x)]
+        self.food = Food((random.randint(0, 19), random.randint(0, 19)), visualize=False, size=(36, 45),
+                         offset=(
+                             multiplier_x + ((multiplier_x - 36) / 2.0), multiplier_y + ((multiplier_y - 45) / 2.0)),
+                         multiplier=multiplier_x)
+        self.background = Background((0, 0), visualize=False, size=(1000, 1000), offset=(0, 0), multiplier=1)
+
         self.direction_state = random.randint(0, 3)
         self.last_states = None
         self.display_surf = None
@@ -61,10 +76,18 @@ class SnakeAbstract(Environment):
         print(self.reward_dict)
 
     def reset(self):
-        self.snake = [(random.randint(1, 18), random.randint(1, 18))]
-        self.food = (random.randint(0, 19), random.randint(0, 19))
+        multiplier_x = float(self.width) / 22.0
+        multiplier_y = float(self.height) / 22.0
+        self.snake = [SnakeHead((random.randint(0, 19), random.randint(0, 19)),
+                                visualize=False if self.display_surf is None else True, size=(40, 40),
+                                offset=(
+                                    multiplier_x + ((multiplier_x - 40) / 2.0),
+                                    multiplier_y + ((multiplier_y - 40) / 2.0)),
+                                multiplier=multiplier_x)]
+        self.food.set_pos((random.randint(0, 19), random.randint(0, 19)))
+
         self.direction_state = random.randint(0, 3)
-        self.distance = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
+        self.distance = np.hypot(self.food.pos[0] - self.snake[-1].pos[0], self.food.pos[1] - self.snake[-1].pos[1])
 
         s = self._build_current_state()
         self.last_states = deque([s] * self.frame_count)
@@ -84,40 +107,51 @@ class SnakeAbstract(Environment):
             if self.direction_state > 3:
                 self.direction_state = 0
 
+        pos = self.snake[-1].pos
         if self.direction_state == self.STATE_LEFT:
-            self.snake.append((self.snake[-1][0] - 1, self.snake[-1][1]))
+            self.snake[-1].set_pos((pos[0] - 1, pos[1]))
         elif self.direction_state == self.STATE_RIGHT:
-            self.snake.append((self.snake[-1][0] + 1, self.snake[-1][1]))
+            self.snake[-1].set_pos((pos[0] + 1, pos[1]))
         elif self.direction_state == self.STATE_UP:
-            self.snake.append((self.snake[-1][0], self.snake[-1][1] - 1))
+            self.snake[-1].set_pos((pos[0], pos[1] - 1))
         elif self.direction_state == self.STATE_DOWN:
-            self.snake.append((self.snake[-1][0], self.snake[-1][1] + 1))
+            self.snake[-1].set_pos((pos[0], pos[1] + 1))
 
-        dist = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
+        for index, item in enumerate(reversed(self.snake)):
+            if index != 0:
+                temp_pos = item.pos
+                item.set_pos(pos)
+                pos = temp_pos
+
+        dist = np.hypot(self.food.pos[0] - self.snake[-1].pos[0], self.food.pos[1] - self.snake[-1].pos[1])
 
         if dist < self.distance:
-            reward = self.reward_dict['dec_distance'] * max(1.0, float(len(self.snake)) * 0.75)
+            reward = self.reward_dict['dec_distance']
         else:
             reward = self.reward_dict['inc_distance']
 
         self.distance = dist
 
         pop = True
-        if self.snake[-1] == self.food:
-            self.food = (random.randint(0, 19), random.randint(0, 19))
-            pop = False
-            reward = self.reward_dict['food'] * float(len(self.snake))
-            self.distance = np.hypot(self.food[0] - self.snake[-1][0], self.food[1] - self.snake[-1][1])
+        if self.snake[-1].pos == self.food.pos:
+            self.food.set_pos((random.randint(0, 19), random.randint(0, 19)))
+            multiplier_x = float(self.width) / 22.0
+            multiplier_y = float(self.height) / 22.0
+            # noinspection PyTypeChecker
+            self.snake.insert(0, SnakeBody(pos, visualize=False if self.display_surf is None else True, size=(40, 40),
+                                           offset=(multiplier_x + ((multiplier_x - 40) / 2.0),
+                                                   multiplier_y + ((multiplier_y - 40) / 2.0)),
+                                           multiplier=multiplier_x))
+            self.distance = np.hypot(self.food.pos[0] - self.snake[-1].pos[0], self.food.pos[1] - self.snake[-1].pos[1])
+            reward = self.reward_dict['food']
 
-        if not self.direction_state == self.STATE_STILL and pop:
-            self.snake.pop(0)
-
-        if self.snake[-1][0] < 0 or self.snake[-1][0] > 19 or self.snake[-1][1] < 0 or self.snake[-1][1] > 19:
+        if self.snake[-1].pos[0] < 0 or self.snake[-1].pos[0] > 19 or self.snake[-1].pos[1] < 0 or \
+                self.snake[-1].pos[1] > 19:
             done = True
             reward = self.reward_dict['death']
 
         for i in range(0, len(self.snake) - 1):
-            if self.snake[-1] == self.snake[i]:
+            if self.snake[-1].pos == self.snake[i].pos:
                 done = True
                 reward = self.reward_dict['death']
                 break
@@ -135,26 +169,29 @@ class SnakeAbstract(Environment):
     def render(self):
         if self.display_surf is None:
             self.display_surf = pygame.display.set_mode((self.width, self.height))
+            self.background.load_graphics()
+            self.food.load_graphics()
+
+            for item in self.snake:
+                item.load_graphics()
+
+            if self.direction_state == self.STATE_LEFT:
+                self.snake[-1].rotate(-90.0)
+            elif self.direction_state == self.STATE_UP:
+                self.snake[-1].rotate(180.0)
+            elif self.direction_state == self.STATE_RIGHT:
+                self.snake[-1].rotate(90.0)
 
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
 
-        self.display_surf.fill((0, 0, 0))
-
-        for x in range(0, self.width, int(self.width / 20)):
-            pygame.draw.line(self.display_surf, (100, 100, 100), (x - 1, 0), (x - 1, self.height), 2)
-
-        for y in range(0, self.height, int(self.height / 20)):
-            pygame.draw.line(self.display_surf, (100, 100, 100), (0, y - 1), (self.width, y - 1), 2)
+        self.display_surf.blit(self.background.image, (0, 0))
 
         for item in self.snake:
-            pygame.draw.rect(self.display_surf, (255, 255, 255),
-                             (int(item[0] * int(self.width / 20) + 2),
-                              int(item[1] * int(self.height / 20) + 2), 46, 46), 0)
+            self.display_surf.blit(item.image, item.rect)
 
-        pygame.draw.circle(self.display_surf, (200, 50, 50),
-                           (self.food[0] * int(self.width / 20) + 25, self.food[1] * int(self.height / 20) + 25), 25)
+        self.display_surf.blit(self.food.image, self.food.rect)
 
         pygame.display.update()
 
@@ -171,9 +208,9 @@ class SnakeAbstract(Environment):
 
         cntr = 0
         for item in self.snake:
-            state[item[0] + 1][item[1] + 1] = self.CELL_SNAKE_HEAD if cntr == \
-                                                                      len(self.snake) - 1 else self.CELL_SNAKE_BODY
+            state[item.pos[0] + 1][item.pos[1] + 1] = self.CELL_SNAKE_HEAD \
+                if cntr == len(self.snake) - 1 else self.CELL_SNAKE_BODY
             cntr += 1
 
-        state[self.food[0] + 1][self.food[1] + 1] = self.CELL_FOOD
+        state[self.food.pos[0] + 1][self.food.pos[1] + 1] = self.CELL_FOOD
         return state

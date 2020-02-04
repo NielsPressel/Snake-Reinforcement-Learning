@@ -13,6 +13,8 @@ from framework.core import Environment
 
 from framework.environments.snake_objects import Food, Background, SnakeHead, SnakeBody
 
+"""---SnakeSimple class---"""
+
 
 class SnakeSimple(Environment):
     """Simple Snake environment for fast learning.
@@ -159,6 +161,7 @@ class SnakeSimple(Environment):
                                                    multiplier_y + ((multiplier_y - 40) / 2.0)),
                                             multiplier=multiplier_x))
             reward = self.reward_dict['food']
+            self.distance = np.hypot(self.food.pos[0] - self.snake[-1].pos[0], self.food.pos[1] - self.snake[-1].pos[1])
 
         if self.snake[-1].pos[0] < 0 or self.snake[-1].pos[0] > 19 or self.snake[-1].pos[1]< 0 or \
                 self.snake[-1].pos[1] > 19:

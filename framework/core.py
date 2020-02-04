@@ -12,6 +12,8 @@ Typical usage example:
 
 from collections import namedtuple
 
+"""---Agent class---"""
+
 
 class Agent:
     """Abstract base class for agents. Do not instantiate this!"""
@@ -54,6 +56,9 @@ class Agent:
         raise NotImplementedError()
 
 
+"""---Policy class---"""
+
+
 class Policy:
     """Abstract base class for policies. Do not instantiate this!"""
 
@@ -70,6 +75,9 @@ class Policy:
 
 
 Transition = namedtuple('Transition', ['state', 'action', 'reward', 'next_state'])
+
+
+"""---Memory class---"""
 
 
 class Memory:
@@ -89,6 +97,9 @@ class Memory:
 
     def __len__(self):
         raise NotImplementedError()
+
+
+"""---Environment class---"""
 
 
 class Environment:

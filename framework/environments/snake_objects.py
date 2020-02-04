@@ -1,11 +1,14 @@
 import pygame
 
+"""---GameObject class---"""
+
 
 class GameObject:
 
     def __init__(self, pos, visualize=False, size=(10, 10), offset=(10, 10), multiplier=10):
         self.image = self._initialize_graphics(visualize, size)
-        self.rect = pygame.Rect(int(pos[0] * multiplier + offset[0]), int(pos[1] * multiplier + offset[1]), size[0], size[1])
+        self.rect = pygame.Rect(int(pos[0] * multiplier + offset[0]), int(pos[1] * multiplier + offset[1]), size[0],
+                                size[1])
         self.pos = pos
         self.offset = offset
         self.multiplier = multiplier
@@ -22,6 +25,9 @@ class GameObject:
         self.rect.top = int(pos[1] * self.multiplier + self.offset[1])
 
 
+"""---Food class---"""
+
+
 class Food(GameObject):
 
     def _initialize_graphics(self, visualize, size):
@@ -31,6 +37,9 @@ class Food(GameObject):
         return None
 
 
+"""---Background class---"""
+
+
 class Background(GameObject):
 
     def _initialize_graphics(self, visualize, size):
@@ -38,6 +47,9 @@ class Background(GameObject):
             image = pygame.image.load("./res/background.bmp").convert()
             return pygame.transform.scale(image, size)
         return None
+
+
+"""---SnakeHead class---"""
 
 
 class SnakeHead(GameObject):
@@ -51,6 +63,9 @@ class SnakeHead(GameObject):
     def rotate(self, angle):
         if self.image is not None:
             self.image = pygame.transform.rotate(self.image, angle)
+
+
+"""---SnakeBody class---"""
 
 
 class SnakeBody(GameObject):

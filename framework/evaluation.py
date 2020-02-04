@@ -1,16 +1,35 @@
 import time
 
+"""---Evaluation class---"""
+
 
 class Evaluation:
+    """Simple class for evaluating a trained model.
 
-    def __init__(self, create_env_func, agent, weights_file_path):
+    Attributes:
+        create_env_function (lambda): Function that creates the environment
+        agent (Agent): Agent to evaluate
+        rewards (dictionary): Collection of rewards to instantiate the environment
+    """
+
+    def __init__(self, create_env_func, agent, weights_file_path, rewards=None):
         self.create_env_function = create_env_func
+        self.rewards = rewards
         self.agent = agent
         self.agent.load(weights_file_path)
 
     def evaluate(self, max_rounds=1, max_steps=10_000, visualize=False, plot_func=None, step_delay=None):
+        """Evaluates a trained model
+
+        Args:
+            max_rounds (int): Number of rounds to evaluate on
+            max_steps (int): Maximum amount of steps per round
+            visualize (bool): Decides wether to render the game while evaluating or not
+            plot_func (lambda): Function to plot the rewards to
+            step_delay (float): Time to pause the game after every step
+        """
         self.agent.training = False
-        env = self.create_env_function()
+        env = self.create_env_function(rewards=self.rewards)
 
         fail_counter = 0
 

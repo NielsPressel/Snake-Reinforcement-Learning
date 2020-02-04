@@ -3,6 +3,8 @@ from collections import deque
 import random
 import numpy as np
 
+"""---Memory helper function---"""
+
 
 def unpack(traces):
     """Returns states, actions, rewards, end_states, and a mask for episode boundaries given traces."""
@@ -12,6 +14,9 @@ def unpack(traces):
     end_states = [t[-1].next_state for t in traces]
     not_done_mask = [[1 if n.next_state is not None else 0 for n in t] for t in traces]
     return states, actions, rewards, end_states, not_done_mask
+
+
+"""---ReplayMemory class---"""
 
 
 class ReplayMemory(Memory):
@@ -71,6 +76,9 @@ class ReplayMemory(Memory):
     def __len__(self):
         """Returns length of trace buffer."""
         return len(self.traces)
+
+
+"""---PrioritizedExperienceReplay class---"""
 
 
 """

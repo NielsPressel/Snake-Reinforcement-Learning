@@ -28,6 +28,8 @@ from framework.core import Agent, Transition
 from framework.policy import EpsilonGreedy, Greedy, EpsilonAdjustmentInfo
 from framework.memory import PrioritizedExperienceReplay, ReplayMemory
 
+"""---DQN class---"""
+
 
 class DQN(Agent):
     """Simple implementation of a deep Q-Learning Agent.
@@ -187,6 +189,9 @@ class DQN(Agent):
         self.model.train_on_batch(np.array(state_batch), np.stack(loss_data).transpose())
 
 
+"""---Experimental training stuff---"""
+
+
 class EpochalDQN(DQN):
 
     def train(self, step):
@@ -280,8 +285,8 @@ class EpochalDQN(DQN):
 
 class ExperimentalDQN(Agent):
 
-    def __init__(self, model, actions, optimizer = None, policy = None, mem_size = 100_000, target_update = 10,
-                 gamma = 0.99, batch_size = 64, nsteps = 1, policy_adjustment = None):
+    def __init__(self, model, actions, optimizer=None, policy=None, mem_size=100_000, target_update=10,
+                 gamma=0.99, batch_size=64, nsteps=1, policy_adjustment=None):
         self.actions = actions
         self.optimizer = Adam(lr=3e-3) if optimizer is None else optimizer
 
@@ -505,3 +510,25 @@ class MinibatchDQN(Agent):
 
     def load(self, filename):
         self.model.load_weights(filename)
+
+
+class Random(Agent):
+
+    def __init__(self, actions):
+        self.actions = actions
+        self.training = False
+
+    def act(self, state):
+        return random.randrange(self.actions)
+
+    def push_observation(self, transition):
+        pass
+
+    def train(self, step):
+        pass
+
+    def save(self, filename, overwrite=False):
+        pass
+
+    def load(self, filename):
+        pass

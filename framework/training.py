@@ -13,6 +13,9 @@ from collections import namedtuple
 RewardState = namedtuple('RewardState', ['reward', 'state'])
 
 
+"""---Training class---"""
+
+
 class Training:
     """Training class for managing the training process.
 

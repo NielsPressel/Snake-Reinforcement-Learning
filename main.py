@@ -2,17 +2,18 @@
 # Author: Niels Pressel
 
 import os
+import gym
+import time
 import matplotlib.pyplot as plt
 import tensorflow as tf
-
-tf.keras.backend.clear_session()
-tf.compat.v1.disable_eager_execution()
+import random
+import numpy as np
 
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, Dropout
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 
-from framework.agents.dqn import DQN, EpochalDQN, ExperimentalDQN, MinibatchDQN
+from framework.agents.dqn import DQN, EpochalDQN, ExperimentalDQN, MinibatchDQN, Random
 from framework.environments.snake_abstract import SnakeAbstract
 from framework.environments.snake_simple import SnakeSimple
 from framework.environments.snake import Snake
@@ -21,8 +22,8 @@ from framework.policy import EpsilonGreedy, EpsilonAdjustmentInfo
 
 from framework.evaluation import Evaluation
 
-import gym
-import time
+
+"""---Helper functions to pass into the training classes---"""
 
 
 def plot_rewards(episode_rewards, episode_steps, done=False):
@@ -43,7 +44,7 @@ def plot_eval(episode_rewards, episode_steps, done=False):
 
 
 def create_session_info(env, model, lr, gamma, nsteps, target_network_update, memory_size, batch_size, step_count,
-                        instances):
+                        instances, rewards):
     folder_id = time.strftime("%Y-%m-%d %H-%M-%S", time.gmtime())
     folder_path = "../weight_data/" + folder_id
 
@@ -51,9 +52,9 @@ def create_session_info(env, model, lr, gamma, nsteps, target_network_update, me
         os.makedirs(folder_path)
 
     with open(os.path.join(folder_path, 'description.txt'), 'w') as f:
-        f.write("Environment: %s \nLearning rate: %f \nGamma: %f \nnSteps: %d \nTarget network update: %d \n"
-                "Memory size: %d \nBatch size: %d \nStep count: %d \nInstance count: %d \n\n"
-                % (env, lr, gamma, nsteps, target_network_update, memory_size, batch_size, step_count, instances))
+        f.write(f"Environment: {env} \nLearning rate: {lr} \nGamma: {gamma} \nnSteps: {nsteps} \n"
+                f"Target network update: {target_network_update} \nMemory size: {memory_size} \nBatch size: {batch_size}"
+                f" \nStep count: {step_count} \nInstance count: {instances} \nRewards: {rewards} \n\n")
 
         model.summary(print_fn=lambda x: f.write(x + "\n"))
 
@@ -67,62 +68,77 @@ def chkpnt(path, agent, step):
         for f in file_list:
             os.remove(os.path.join(full_path, f))
 
-    agent.save(os.path.join(full_path, "checkpoint-%d.dat" % step))
+    agent.save(os.path.join(full_path, f"checkpoint-{step}.dat"))
+
+
+"""---Main function---"""
 
 
 def main():
-    print("Tensorflow: ", tf.version.VERSION)
+    tf.keras.backend.clear_session()
+    tf.compat.v1.disable_eager_execution()
+
+    random.seed(0)
+    np.random.seed(0)
+    tf.random.set_seed(0)
+
+    print("TensorFlow: ", tf.version.VERSION)
 
     if tf.config.list_physical_devices('GPU'):
         print("Using GPU version")
 
-    LEARNING_RATE = 5e-3
-    GAMMA = 0.95
-    TARGET_NETWORK_UPDATE = 10
-    MEMORY_SIZE = 100_000
-    BATCH_SIZE = 1_000
-    STEP_COUNT = 1_000_000
-    INSTANCE_COUNT = 1
-    N_STEPS = 2
+    # Constants
+    learning_rate = 5e-3
+    gamma = 0.99
+    target_network_update = 10
+    memory_size = 100_000
+    batch_size = 1_000
+    step_count = 200_000
+    instance_count = 1
+    n_steps = 30
+    rewards = {'death': -10.0, 'food': 10.0, 'dec_distance': 0.0, 'inc_distance': 0.0}
 
     evaluate = False
 
+    # Model (Neural Network to train or evaluate)
     model = Sequential(
         [
-            Conv2D(40, kernel_size=(3, 3), strides=(1, 1), input_shape=(2, 22, 22), activation='relu',
+            Conv2D(16, kernel_size=(6, 6), strides=(2, 2), input_shape=(1, 22, 22), activation='relu',
                    data_format='channels_first'),
-            Conv2D(80, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
+            Conv2D(32, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
             Flatten(),
-            Dense(320, activation='relu'),
-            Dense(160, activation='relu'),
-
+            Dense(256, activation='relu'),
         ]
     )
 
     """
-     Dense(16, input_shape=(8, ), activation='relu'),
+    Dense(16, input_shape=(8, ), activation='relu'),
     Dense(16, activation='relu'),
     Dense(32, activation='relu'),
     Dense(32, activation='relu'),
     """
 
-    agent = ExperimentalDQN(model, 3, optimizer=Adam(lr=LEARNING_RATE), policy=EpsilonGreedy(1.0), mem_size=MEMORY_SIZE,
-                       target_update=TARGET_NETWORK_UPDATE, gamma=GAMMA, batch_size=BATCH_SIZE, nsteps=N_STEPS,
-                       policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.2, 500_000, 'linear'))
+    # Agent (object that interacts with the environment in order to learn)
+    agent = DQN(model, 3, optimizer=Adam(lr=learning_rate), policy=EpsilonGreedy(1.0), mem_size=memory_size,
+                target_update=target_network_update, gamma=gamma, batch_size=batch_size, nsteps=n_steps,
+                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.2, 150_000, 'linear'))
 
+    # agent = Random(3)
+
+    # Start a new training session or evaluate an old one
     if not evaluate:
-        path = create_session_info("Snake Abstract", model, LEARNING_RATE, GAMMA, N_STEPS, TARGET_NETWORK_UPDATE,
-                                  MEMORY_SIZE, BATCH_SIZE, STEP_COUNT, INSTANCE_COUNT)
+        path = create_session_info("Snake Abstract", model, learning_rate, gamma, n_steps, target_network_update,
+                                   memory_size, batch_size, step_count, instance_count, rewards)
         training = Training(SnakeAbstract.create, agent)
-        training.train(STEP_COUNT, max_subprocesses=0, checkpnt_func=chkpnt, path=path,
-                               rewards={'death': -10.0, 'food': 10.0, 'dec_distance': 0.0, 'inc_distance': 0.0})
+        training.train(step_count, max_subprocesses=0, checkpnt_func=chkpnt, path=path,
+                       rewards=rewards)
         agent.save(os.path.join(path, "weights.dat"), True)
         training.evaluate(10_000, visualize=True, plot_func=plot_eval)
     else:
         evaluation = Evaluation(SnakeAbstract.create, agent, "weights.dat")
         fails = evaluation.evaluate(max_rounds=20, max_steps=1_000, visualize=True, plot_func=plot_eval,
-                                    step_delay=0.05)
-        print("Failed %d times" % fails)
+                                    step_delay=None)
+        print(f"Failed {fails} times")
 
 
 if __name__ == "__main__":
