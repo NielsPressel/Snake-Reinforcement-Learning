@@ -22,7 +22,6 @@ from framework.policy import EpsilonGreedy, EpsilonAdjustmentInfo
 
 from framework.evaluation import Evaluation
 
-
 """---Helper functions to pass into the training classes---"""
 
 
@@ -87,23 +86,28 @@ def main():
     if tf.config.list_physical_devices('GPU'):
         print("Using GPU version")
 
+    if tf.executing_eagerly():
+        print("Executing eagerly")
+    else:
+        print("Eager execution is disabled")
+
     # Constants
-    learning_rate = 5e-3
-    gamma = 0.99
-    target_network_update = 10
+    learning_rate = 3e-3
+    gamma = 0.95
+    target_network_update = 1_000
     memory_size = 100_000
     batch_size = 1_000
-    step_count = 200_000
+    step_count = 100_000
     instance_count = 1
-    n_steps = 30
-    rewards = {'death': -10.0, 'food': 10.0, 'dec_distance': 0.0, 'inc_distance': 0.0}
+    n_steps = 1
+    rewards = {'death': -1.0, 'food': 1.0, 'dec_distance': 0.1, 'inc_distance': -0.1, 'timeout': -0.05}
 
     evaluate = False
 
     # Model (Neural Network to train or evaluate)
     model = Sequential(
         [
-            Conv2D(16, kernel_size=(6, 6), strides=(2, 2), input_shape=(1, 22, 22), activation='relu',
+            Conv2D(16, kernel_size=(6, 6), strides=(2, 2), input_shape=(3, 22, 22), activation='relu',
                    data_format='channels_first'),
             Conv2D(32, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
             Flatten(),
@@ -112,16 +116,22 @@ def main():
     )
 
     """
-    Dense(16, input_shape=(8, ), activation='relu'),
+    Dense(16, input_shape=(8,), activation='relu'),
     Dense(16, activation='relu'),
     Dense(32, activation='relu'),
     Dense(32, activation='relu'),
+    
+    Conv2D(16, kernel_size=(6, 6), strides=(2, 2), input_shape=(1, 22, 22), activation='relu',
+                   data_format='channels_first'),
+    Conv2D(32, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
+    Flatten(),
+    Dense(256, activation='relu'),
     """
 
     # Agent (object that interacts with the environment in order to learn)
-    agent = DQN(model, 3, optimizer=Adam(lr=learning_rate), policy=EpsilonGreedy(1.0), mem_size=memory_size,
+    agent = ExperimentalDQN(model, 3, optimizer=Adam(lr=learning_rate), policy=EpsilonGreedy(1.0), mem_size=memory_size,
                 target_update=target_network_update, gamma=gamma, batch_size=batch_size, nsteps=n_steps,
-                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.2, 150_000, 'linear'))
+                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.2, 50_000, 'linear'))
 
     # agent = Random(3)
 
@@ -133,9 +143,9 @@ def main():
         training.train(step_count, max_subprocesses=0, checkpnt_func=chkpnt, path=path,
                        rewards=rewards)
         agent.save(os.path.join(path, "weights.dat"), True)
-        training.evaluate(10_000, visualize=True, plot_func=plot_eval)
+        training.evaluate(10_000, visualize=True, plot_func=plot_eval, rewards=rewards)
     else:
-        evaluation = Evaluation(SnakeAbstract.create, agent, "weights.dat")
+        evaluation = Evaluation(SnakeAbstract.create, agent, "weights.dat", rewards)
         fails = evaluation.evaluate(max_rounds=20, max_steps=1_000, visualize=True, plot_func=plot_eval,
                                     step_delay=None)
         print(f"Failed {fails} times")

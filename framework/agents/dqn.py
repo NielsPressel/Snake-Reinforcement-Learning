@@ -292,7 +292,7 @@ class ExperimentalDQN(Agent):
 
         self.policy = EpsilonGreedy(0.1) if policy is None else policy
         self.policy_adjustment = policy_adjustment
-        self.eval_policy = Greedy()
+        self.eval_policy = EpsilonGreedy(0.05)
 
         self.mem_size = mem_size
         self.memory = PrioritizedExperienceReplay(mem_size, nsteps)
@@ -385,9 +385,9 @@ class ExperimentalDQN(Agent):
         non_final_states = [s for s, es in zip(state_batch, end_state_batch) if es is not None]
 
         if len(non_final_last_next_states) > 0:
-            q_values = self.model.predict_on_batch(np.array(non_final_last_next_states))
+            q_values = self.model.predict_on_batch(np.array(non_final_states))
             actions = np.argmax(q_values, axis=1)
-            target_q_values = self.target_model.predict_on_batch(np.array(non_final_states))
+            target_q_values = self.target_model.predict_on_batch(np.array(non_final_last_next_states))
 
             if tf.executing_eagerly():
                 target_q_values = target_q_values.numpy()

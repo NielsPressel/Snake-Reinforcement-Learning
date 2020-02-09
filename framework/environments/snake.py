@@ -16,10 +16,10 @@ class Snake(Environment):
     STATE_STILL = 4
 
     @classmethod
-    def create(cls):
-        return cls(1000, 1000, 2, 84, 84)
+    def create(cls, rewards=None):
+        return cls(1000, 1000, 4, 84, 84, rewards)
 
-    def __init__(self, width, height, frame_count, input_width, input_height):
+    def __init__(self, width, height, frame_count, input_width, input_height, rewards):
         self.width = width
         self.height = height
         self.frame_count = frame_count
@@ -31,6 +31,8 @@ class Snake(Environment):
         self.food = (random.randint(0, 19), random.randint(0, 19))
         self.direction_state = self.STATE_STILL
         self.last_states = None
+        self.rewards_dict = {'death': -1.0, 'food': 1.0, 'dec_distance': 1.0, 'inc_distance': -1.0} if rewards is None\
+            else rewards
 
         self.display_surf = None
 
@@ -42,11 +44,12 @@ class Snake(Environment):
         s = self._build_current_state()
         self.last_states = deque([s] * self.frame_count)
 
-        next_state = np.asarray(self.last_states).transpose()
+        next_state = np.asarray(self.last_states)
         return next_state
 
     def step(self, action):
         done = False
+        reward = 0.0
 
         if action == self.STATE_RIGHT:
             if not self.direction_state == self.STATE_LEFT:
@@ -74,27 +77,19 @@ class Snake(Environment):
         if self.snake[-1] == self.food:
             self.food = (random.randint(0, 19), random.randint(0, 19))
             pop = False
+            reward = self.rewards_dict['food']
 
         if not self.direction_state == self.STATE_STILL and pop:
             self.snake.pop(0)
 
-        x_error = abs(self.snake[0][0] - self.food[0])
-        y_error = abs(self.snake[0][1] - self.food[1])
-        cum_error = x_error + y_error
-
-        if cum_error == 0:
-            reward = 1.0
-        else:
-            reward = float(1.0 / cum_error)
-
         if self.snake[-1][0] < 0 or self.snake[-1][0] > 19 or self.snake[-1][1] < 0 or self.snake[-1][1] > 19:
             done = True
-            reward = 0.0
+            reward = self.rewards_dict['death']
 
         for i in range(0, len(self.snake) - 1):
             if self.snake[-1] == self.snake[i]:
                 done = True
-                reward = 0.0
+                reward = self.rewards_dict['death']
                 break
 
         s = self._build_current_state()
@@ -104,7 +99,7 @@ class Snake(Environment):
             self.last_states.append(s)
             self.last_states.popleft()
 
-        next_state = np.asarray(self.last_states).transpose()
+        next_state = np.asarray(self.last_states)
         return next_state, reward, done, None
 
     def render(self):

@@ -70,7 +70,7 @@ class Training:
         elif max_subprocesses >= 1:
             self._mp_train_epochal(max_steps, max_subprocesses, checkpnt_func, path, rewards)
 
-    def evaluate(self, max_steps=10_000, visualize=False, plot_func=None):
+    def evaluate(self, max_steps=10_000, visualize=False, plot_func=None, rewards=None):
         """Evaluates the model after training by playing a few games.
 
         Args:
@@ -78,9 +78,10 @@ class Training:
             visualize (bool): Decides wether to render the game or not
             plot_func (lambda): The function that plots the reward data. Function must be of type func(rewards: float[],
                                 steps: float[], done: bool). If plot_func is None plotting is disabled.
+            rewards (dictionary): Collection of rewards to instantiate the environment
         """
         self.agent.training = False
-        env = self.create_env_func()
+        env = self.create_env_func(rewards=rewards)
         state = env.reset()
         episode_reward = 0
         episode_rewards = []

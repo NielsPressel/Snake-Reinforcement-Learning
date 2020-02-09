@@ -26,7 +26,7 @@ class Evaluation:
             max_steps (int): Maximum amount of steps per round
             visualize (bool): Decides wether to render the game while evaluating or not
             plot_func (lambda): Function to plot the rewards to
-            step_delay (float): Time to pause the game after every step
+            step_delay (float, None): Time to pause the game after every step
         """
         self.agent.training = False
         env = self.create_env_function(rewards=self.rewards)

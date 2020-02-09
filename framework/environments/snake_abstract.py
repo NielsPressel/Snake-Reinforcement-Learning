@@ -45,7 +45,7 @@ class SnakeAbstract(Environment):
 
     @classmethod
     def create(cls, rewards=None):
-        return cls(1000, 1000, 1, rewards)
+        return cls(1000, 1000, 3, rewards)
 
     def __init__(self, width, height, frame_count, rewards):
         self.width = width
@@ -70,9 +70,10 @@ class SnakeAbstract(Environment):
         self.last_states = None
         self.display_surf = None
         self.distance = 0
+        self.steps_since_last_food = 0
 
         self.reward_dict = {'death': -10.0, 'food': 20.0, 'dec_distance': 3.0,
-                            'inc_distance': -5.0} if rewards is None else rewards
+                            'inc_distance': -5.0, 'timeout': -0.1} if rewards is None else rewards
         print(self.reward_dict)
 
     def reset(self):
@@ -97,6 +98,8 @@ class SnakeAbstract(Environment):
 
     def step(self, action):
         done = False
+        reward = 0.0
+        self.steps_since_last_food += 1
 
         if action == self.ACTION_LEFT:
             self.direction_state -= 1
@@ -126,13 +129,15 @@ class SnakeAbstract(Environment):
         dist = np.hypot(self.food.pos[0] - self.snake[-1].pos[0], self.food.pos[1] - self.snake[-1].pos[1])
 
         if dist < self.distance:
-            reward = self.reward_dict['dec_distance']
+            reward += self.reward_dict['dec_distance']
         else:
-            reward = self.reward_dict['inc_distance']
+            reward += self.reward_dict['inc_distance']
 
         self.distance = dist
 
-        pop = True
+        if self.steps_since_last_food >= 40:
+            reward += self.reward_dict['timeout'] * self.steps_since_last_food
+
         if self.snake[-1].pos == self.food.pos:
             self.food.set_pos((random.randint(0, 19), random.randint(0, 19)))
             multiplier_x = float(self.width) / 22.0
@@ -143,17 +148,18 @@ class SnakeAbstract(Environment):
                                                    multiplier_y + ((multiplier_y - 40) / 2.0)),
                                            multiplier=multiplier_x))
             self.distance = np.hypot(self.food.pos[0] - self.snake[-1].pos[0], self.food.pos[1] - self.snake[-1].pos[1])
-            reward = self.reward_dict['food']
+            self.steps_since_last_food = 0
+            reward += self.reward_dict['food']
 
         if self.snake[-1].pos[0] < 0 or self.snake[-1].pos[0] > 19 or self.snake[-1].pos[1] < 0 or \
                 self.snake[-1].pos[1] > 19:
             done = True
-            reward = self.reward_dict['death']
+            reward += self.reward_dict['death']
 
         for i in range(0, len(self.snake) - 1):
             if self.snake[-1].pos == self.snake[i].pos:
                 done = True
-                reward = self.reward_dict['death']
+                reward += self.reward_dict['death']
                 break
 
         s = self._build_current_state()
@@ -164,6 +170,8 @@ class SnakeAbstract(Environment):
             self.last_states.popleft()
 
         next_state = np.asarray(self.last_states)
+        reward = max(-1.0, min(reward, 1.0)) # Clamp reward to range [-1.0, 1.0]
+
         return next_state, reward, done, None
 
     def render(self):
