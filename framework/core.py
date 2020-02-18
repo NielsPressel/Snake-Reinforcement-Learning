@@ -74,7 +74,16 @@ class Policy:
         raise NotImplementedError()
 
 
-Transition = namedtuple('Transition', ['state', 'action', 'reward', 'next_state'])
+class Transition:
+
+    def __init__(self, state, action, reward, next_state):
+        self.state = state
+        self.action = action
+        self.reward = reward
+        self.next_state = next_state
+
+    def adjust_reward(self, reward):
+        self.reward = max(-1.0, min(self.reward + reward, 1.0))
 
 
 """---Memory class---"""

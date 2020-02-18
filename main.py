@@ -83,8 +83,10 @@ def main():
 
     print("TensorFlow: ", tf.version.VERSION)
 
-    if tf.config.list_physical_devices('GPU'):
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
         print("Using GPU version")
+        tf.config.experimental.set_memory_growth(gpus[0], True)
 
     if tf.executing_eagerly():
         print("Executing eagerly")
@@ -96,30 +98,31 @@ def main():
     gamma = 0.95
     target_network_update = 1_000
     memory_size = 100_000
-    batch_size = 1_000
-    step_count = 100_000
+    batch_size = 64
+    step_count = 1_000_000
     instance_count = 1
     n_steps = 1
     rewards = {'death': -1.0, 'food': 1.0, 'dec_distance': 0.1, 'inc_distance': -0.1, 'timeout': -0.05}
 
-    evaluate = False
+    evaluate = True
 
     # Model (Neural Network to train or evaluate)
     model = Sequential(
         [
-            Conv2D(16, kernel_size=(6, 6), strides=(2, 2), input_shape=(3, 22, 22), activation='relu',
-                   data_format='channels_first'),
-            Conv2D(32, kernel_size=(3, 3), strides=(1, 1), activation='relu'),
-            Flatten(),
-            Dense(256, activation='relu'),
+            Flatten(input_shape=(3, 22, 22)),
+            Dense(480, activation='relu'),
+            Dropout(0.2),
+            Dense(240, activation='relu'),
+            Dropout(0.2),
+            Dense(120, activation='relu')
         ]
     )
 
-    """
-    Dense(16, input_shape=(8,), activation='relu'),
-    Dense(16, activation='relu'),
-    Dense(32, activation='relu'),
-    Dense(32, activation='relu'),
+    """  
+    
+    Flatten(input_shape=(3, 22, 22)),
+    Dense(480, activation='relu'),
+    Dense(240, activation='relu'),
     
     Conv2D(16, kernel_size=(6, 6), strides=(2, 2), input_shape=(1, 22, 22), activation='relu',
                    data_format='channels_first'),
@@ -129,9 +132,9 @@ def main():
     """
 
     # Agent (object that interacts with the environment in order to learn)
-    agent = ExperimentalDQN(model, 3, optimizer=Adam(lr=learning_rate), policy=EpsilonGreedy(1.0), mem_size=memory_size,
+    agent = ExperimentalDQN(model, 3, optimizer=Adam(lr=learning_rate), policy=EpsilonGreedy(0.5), mem_size=memory_size,
                 target_update=target_network_update, gamma=gamma, batch_size=batch_size, nsteps=n_steps,
-                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.2, 50_000, 'linear'))
+                policy_adjustment=EpsilonAdjustmentInfo(1.0, 0.05, 500_000, 'linear'))
 
     # agent = Random(3)
 

@@ -26,7 +26,7 @@ from tensorflow.keras.models import Model
 
 from framework.core import Agent, Transition
 from framework.policy import EpsilonGreedy, Greedy, EpsilonAdjustmentInfo
-from framework.memory import PrioritizedExperienceReplay, ReplayMemory
+from framework.memory import PrioritizedExperienceReplay, ReplayMemory, DualExperienceReplay, ProbabilityAdjustment
 
 """---DQN class---"""
 
@@ -292,10 +292,10 @@ class ExperimentalDQN(Agent):
 
         self.policy = EpsilonGreedy(0.1) if policy is None else policy
         self.policy_adjustment = policy_adjustment
-        self.eval_policy = EpsilonGreedy(0.05)
+        self.eval_policy = Greedy()
 
         self.mem_size = mem_size
-        self.memory = PrioritizedExperienceReplay(mem_size, nsteps)
+        self.memory = DualExperienceReplay(mem_size, nsteps, 0.8, ProbabilityAdjustment(0.8, 0.5, 200_000, 'linear'))
 
         self.target_network_update = target_update
         self.gamma = gamma
@@ -307,26 +307,7 @@ class ExperimentalDQN(Agent):
         output_layer = Dense(self.actions, activation='linear')(raw_output)
         self.model = Model(inputs=model.input, outputs=output_layer)
 
-        def masked_q_loss(data, y_pred):
-            """Computes the MSE between the Q-values of the actions that were taken and	the cumulative discounted
-            rewards obtained after taking those actions. Updates trace priorities if using PrioritizedExperienceReplay.
-            """
-            action_batch, target_qvals = data[:, 0], data[:, 1]
-            seq = tf.cast(tf.range(0, tf.shape(action_batch)[0]), tf.int32)
-            action_idxs = tf.transpose(tf.stack([seq, tf.cast(action_batch, tf.int32)]))
-            qvals = tf.gather_nd(y_pred, action_idxs)
-            if isinstance(self.memory, PrioritizedExperienceReplay):
-                def update_priorities(_qvals, _target_qvals, _traces_idxs):
-                    """Computes the TD error and updates memory priorities."""
-                    td_error = np.abs((_target_qvals - _qvals).numpy())
-                    _traces_idxs = (tf.cast(_traces_idxs, tf.int32)).numpy()
-                    self.memory.update_priorities(_traces_idxs, td_error)
-                    return _qvals
-
-                qvals = tf.py_function(func=update_priorities, inp=[qvals, target_qvals, data[:, 2]], Tout=tf.float32)
-            return tf.keras.losses.mse(qvals, target_qvals)
-
-        self.model.compile(optimizer=self.optimizer, loss=masked_q_loss)
+        self.model.compile(optimizer=self.optimizer, loss="mse")
 
         self.target_model = tf.keras.models.clone_model(self.model)
         self.target_model.set_weights(self.model.get_weights())
@@ -373,47 +354,29 @@ class ExperimentalDQN(Agent):
                             self.policy_adjustment.step_count)) * np.sqrt(
                             self.policy_adjustment.step_count - step) + self.policy_adjustment.epsilon_end
 
+        if isinstance(self.memory, DualExperienceReplay):
+            self.memory.adjust_prob(step)
+
         # Train even when memory has fewer than the specified batch_size
         batch_size = min(self.batch_size, len(self.memory))
 
         # Sample batch_size traces from memory
-        state_batch, action_batch, reward_batches, end_state_batch, not_done_mask = self.memory.get(batch_size)
+        state_batch, action_batch, reward_batch, next_state_batch, not_done_mask = self.memory.get(batch_size)
 
-        target_qvals = np.zeros(batch_size)
+        non_final_last_next_states = [es for es in next_state_batch if es is not None]
 
-        non_final_last_next_states = [es for es in end_state_batch if es is not None]
-        non_final_states = [s for s, es in zip(state_batch, end_state_batch) if es is not None]
+        action_target_values = self.model.predict_on_batch(np.array(state_batch))
+        final_mask = list(map(lambda s: s is None, next_state_batch))
+        non_final_mask = list(map(lambda s: s is not None, next_state_batch))
+
+        action_target_values[final_mask, action_batch[final_mask]] = reward_batch[final_mask]
 
         if len(non_final_last_next_states) > 0:
-            q_values = self.model.predict_on_batch(np.array(non_final_states))
-            actions = np.argmax(q_values, axis=1)
             target_q_values = self.target_model.predict_on_batch(np.array(non_final_last_next_states))
+            max_target_q_values = np.max(target_q_values, axis=1)
+            action_target_values[non_final_mask, action_batch[non_final_mask]] = reward_batch[non_final_mask] + self.gamma * max_target_q_values
 
-            if tf.executing_eagerly():
-                target_q_values = target_q_values.numpy()
-
-            selected_target_q_vals = target_q_values[range(len(target_q_values)), actions]
-
-            non_final_mask = list(map(lambda s: s is not None, end_state_batch))
-            target_qvals[non_final_mask] = selected_target_q_vals
-
-        # Compute n-step discounted return
-        # If episode ended within any sampled nstep trace - zero out remaining rewards
-        for n in reversed(range(self.nsteps)):
-            rewards = np.array([b[n] for b in reward_batches])
-            target_qvals *= np.array([t[n] for t in not_done_mask])
-            target_qvals = rewards + (self.gamma * target_qvals)
-
-        # Compile information needed by the custom loss function
-        loss_data = [action_batch, target_qvals]
-
-        # If using PrioritizedExperienceReplay then we need to provide the trace indexes
-        # to the loss function as well so we can update the priorities of the traces
-        if isinstance(self.memory, PrioritizedExperienceReplay):
-            loss_data.append(self.memory.last_traces_idxs())
-
-        # Train model
-        self.model.train_on_batch(np.array(state_batch), np.stack(loss_data).transpose())
+        self.model.train_on_batch(state_batch, action_target_values)
 
 
 class MinibatchDQN(Agent):
@@ -481,6 +444,9 @@ class MinibatchDQN(Agent):
                             self.policy_adjustment.epsilon_start - self.policy_adjustment.epsilon_end) / np.sqrt(
                             self.policy_adjustment.step_count)) * np.sqrt(
                             self.policy_adjustment.step_count - step) + self.policy_adjustment.epsilon_end
+
+        if isinstance(self.memory, DualExperienceReplay):
+            self.memory.adjust_prob(step)
 
         batch_size = min(self.batch_size, len(self.memory))
 

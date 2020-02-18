@@ -1,5 +1,5 @@
-from framework.core import Memory
-from collections import deque
+from framework.core import Memory, Transition
+from collections import deque, namedtuple
 import random
 import numpy as np
 
@@ -32,46 +32,22 @@ class ReplayMemory(Memory):
 
     def __init__(self, capacity, steps=1, exclude_boundaries=False):
         self.traces = deque(maxlen=capacity)
-        self.buffer = []
         self.capacity = capacity
-        self.steps = steps
-        self.exclude_boundaries = exclude_boundaries
 
     def put(self, transition):
-        """This method adds a transition to memory.
-
-        Args:
-            transition: The transition to add.
-        """
-        self.buffer.append(transition)
-        if len(self.buffer) < self.steps:
-            return
-
-        # Only append trace if buffer exceeds size of step
-        self.traces.append(tuple(self.buffer))
-
-        # If boundaries should be excluded clear buffer on last state of episode (next_state == None)
-        if self.exclude_boundaries and transition.next_state is None:
-            self.buffer = []
-            return
-
-        self.buffer = self.buffer[1:]  # Roll buffer
+        self.traces.append(transition)
 
     def get(self, batch_size):
-        """Samples a random batch of traces.
-
-        Args:
-            batch_size: Size of the batch.
-
-        Returns:
-            tuple: Returns batch of (state, action, reward, end_state, not_done).
-        """
         traces = random.sample(self.traces, batch_size)
-        return unpack(traces)
+
+        state_batch = [t.state for t in traces]
+        action_batch = [t.action for t in traces]
+        reward_batch = [t.reward for t in traces]
+        next_state_batch = [t.next_state for t in traces]
+        return np.array(state_batch), np.array(action_batch), np.array(reward_batch), np.array(next_state_batch), None
 
     def clear(self):
         self.traces.clear()
-        self.buffer.clear()
 
     def __len__(self):
         """Returns length of trace buffer."""
@@ -79,7 +55,6 @@ class ReplayMemory(Memory):
 
 
 """---PrioritizedExperienceReplay class---"""
-
 
 """
 The following part is copied from huskarl framework! (https://github.com/danaugrs/huskarl)
@@ -162,3 +137,91 @@ class PrioritizedExperienceReplay(Memory):
     def __len__(self):
         """Returns the number of traces stored."""
         return len(self.traces)
+
+
+ProbabilityAdjustment = namedtuple('ProbabilityAdjustment', ['prob_start', 'prob_end', 'step_count',
+                                                             'interpolation_type'])
+
+
+class DualExperienceReplay(Memory):
+
+    def __init__(self, capacity, steps=1, prob=0.8, adjustment=None):
+        self.capacity_m1 = capacity // 2
+        self.capacity_m2 = capacity // 2
+        self.steps = steps
+        self.last_array_ops = []
+        self.traces_m1 = []
+        self.traces_m2 = []
+        self.prob = prob
+        self.adjustment = adjustment
+        self.performance_padding = 1_000
+
+    def put(self, transition):
+        self.last_array_ops.append(id(transition))
+
+        if len(self.last_array_ops) > 40:
+            self.last_array_ops.pop(0)
+
+        if transition.reward >= 0.5:
+            self.traces_m1.append(transition)
+
+            if len(self.traces_m1) > self.capacity_m1 + self.performance_padding:
+                self.traces_m1 = self.traces_m1[self.performance_padding:]
+        else:
+            self.traces_m2.append(transition)
+
+            if len(self.traces_m2) > self.capacity_m2 + self.performance_padding:
+                self.traces_m2 = self.traces_m2[self.performance_padding:]
+
+    def get(self, batch_size):
+        m1_size = int(np.ceil(self.prob * batch_size))
+        m2_size = int(np.floor((1.0 - self.prob) * batch_size))
+
+        indices_m1 = np.random.choice(len(self.traces_m1), m1_size, replace=False)
+        indices_m2 = np.random.choice(len(self.traces_m2), m2_size, replace=False)
+
+        m1_batch = [self.traces_m1[i] for i in indices_m1]
+        m2_batch = [self.traces_m2[i] for i in indices_m2]
+
+        batch = m1_batch + m2_batch
+
+        state_batch = [t.state for t in batch]
+        action_batch = [t.action for t in batch]
+        reward_batch = [t.reward for t in batch]
+        next_state_batch = [t.next_state for t in batch]
+        return np.array(state_batch), np.array(action_batch), np.array(reward_batch), np.array(next_state_batch), None
+
+    def clear(self):
+        self.traces_m1 = []
+        self.traces_m2 = []
+
+    def adjust_prob(self, step):
+        if self.adjustment:
+            if step <= self.adjustment.step_count:
+                if self.adjustment.interpolation_type == 'linear':
+                    self.prob = ((self.adjustment.prob_end - self.adjustment.prob_start) / self.adjustment.step_count) \
+                                * step + self.adjustment.prob_start
+
+    def adjust_rewards(self, reward, steps):
+        steps = int(min(steps, 40))
+
+        for operation in reversed(self.last_array_ops[-steps:]):
+            found = False
+            for item in reversed(self.traces_m1[-steps:]):
+                if operation == id(item):
+                    self.traces_m1.remove(item)
+                    transition = item
+                    transition.adjust_reward(reward)
+
+                    self.traces_m2.append(transition)
+                    found = True
+                    break
+
+            if not found:
+                for item in reversed(self.traces_m2[-steps:]):
+                    if operation == id(item):
+                        item.adjust_reward(reward)
+                        break
+
+    def __len__(self):
+        return min(len(self.traces_m1), len(self.traces_m2))

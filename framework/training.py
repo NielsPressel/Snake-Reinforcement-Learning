@@ -1,5 +1,6 @@
 from framework.core import Transition
 from framework.agents.dqn import MinibatchDQN
+from framework.memory import DualExperienceReplay
 
 import sys
 import os
@@ -128,6 +129,9 @@ class Training:
         episode_step_sequences = [[] for i in range(instances)]
         episode_rewards = [0] * instances
 
+        game_info = []
+        last_game_step = 0
+
         # Create and initialize environment instances
         envs = [self.create_env_func(rewards=rewards) for _ in range(instances)]
         states = [env.reset() for env in envs]
@@ -149,7 +153,11 @@ class Training:
                 if visualize:
                     envs[i].render()
                 action = self.agent.act(states[i])  # Get next action from agent
-                next_state, reward, done, _ = envs[i].step(action)  # Take one step using the agent's action
+
+                if isinstance(self.agent.memory, DualExperienceReplay):
+                    next_state, reward, done, _ = envs[i].step(action, self.agent.memory.adjust_rewards)  # Take one step using the agent's action
+                else:
+                    next_state, reward, done, _ = envs[i].step(action)
 
                 # Store transition in memory
                 self.agent.push_observation(Transition(states[i], action, reward, None if done else next_state))
@@ -159,6 +167,9 @@ class Training:
                     self.agent.train_short_memory(states[i], action, reward, None if done else next_state)
 
                 if done:  # On terminal state reset the environment and save the cumulative reward
+                    game_info.append((episode_rewards[i], step - last_game_step))
+                    last_game_step = step
+
                     episode_reward_sequences[i].append(episode_rewards[i])
                     episode_step_sequences[i].append(step)
                     episode_rewards[i] = 0
@@ -185,6 +196,13 @@ class Training:
             if checkpnt_func:
                 if step % 1000 == 0:
                     checkpnt_func(path, self.agent, step)
+
+            if step % 50_000 == 0:
+                with open(os.path.join(path, "training_metrics.txt"), 'a') as f:
+                    for item in game_info:
+                        f.write(str(item[0]) + ", " + str(item[1]) + "\n")
+                    f.flush()
+                game_info = []
 
         # If plot function is given plot the reward at the end
         if plot:
