@@ -31,11 +31,15 @@ class ReplayMemory(Memory):
     """
 
     def __init__(self, capacity, steps=1, exclude_boundaries=False):
-        self.traces = deque(maxlen=capacity)
+        self.traces = []
         self.capacity = capacity
+        self.performance_padding = 100
 
     def put(self, transition):
         self.traces.append(transition)
+
+        if len(self.traces) > self.capacity + self.performance_padding:
+            self.traces = self.traces[self.performance_padding:]
 
     def get(self, batch_size):
         traces = random.sample(self.traces, batch_size)
@@ -47,7 +51,7 @@ class ReplayMemory(Memory):
         return np.array(state_batch), np.array(action_batch), np.array(reward_batch), np.array(next_state_batch), None
 
     def clear(self):
-        self.traces.clear()
+        self.traces = []
 
     def __len__(self):
         """Returns length of trace buffer."""

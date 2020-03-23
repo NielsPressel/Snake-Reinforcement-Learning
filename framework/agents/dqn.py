@@ -292,10 +292,10 @@ class ExperimentalDQN(Agent):
 
         self.policy = EpsilonGreedy(0.1) if policy is None else policy
         self.policy_adjustment = policy_adjustment
-        self.eval_policy = Greedy()
+        self.eval_policy = EpsilonGreedy(0.0)
 
         self.mem_size = mem_size
-        self.memory = DualExperienceReplay(mem_size, nsteps, 0.8, ProbabilityAdjustment(0.8, 0.5, 200_000, 'linear'))
+        self.memory = ReplayMemory(mem_size, nsteps)
 
         self.target_network_update = target_update
         self.gamma = gamma
@@ -353,6 +353,11 @@ class ExperimentalDQN(Agent):
                             self.policy_adjustment.epsilon_start - self.policy_adjustment.epsilon_end) / np.sqrt(
                             self.policy_adjustment.step_count)) * np.sqrt(
                             self.policy_adjustment.step_count - step) + self.policy_adjustment.epsilon_end
+                    elif self.policy_adjustment.interpolation_type == 'log':
+                        a = (786.0 / self.policy_adjustment.step_count)
+                        self.policy.epsilon = min(1.0, (1 / np.log(a * (step + (1 / a) + 1.0e-7))) - 0.1)
+                    else:
+                        raise NotImplementedError()
 
         if isinstance(self.memory, DualExperienceReplay):
             self.memory.adjust_prob(step)
@@ -374,7 +379,8 @@ class ExperimentalDQN(Agent):
         if len(non_final_last_next_states) > 0:
             target_q_values = self.target_model.predict_on_batch(np.array(non_final_last_next_states))
             max_target_q_values = np.max(target_q_values, axis=1)
-            action_target_values[non_final_mask, action_batch[non_final_mask]] = reward_batch[non_final_mask] + self.gamma * max_target_q_values
+            action_target_values[non_final_mask, action_batch[non_final_mask]] = reward_batch[non_final_mask] +\
+                                                                                 self.gamma * max_target_q_values
 
         self.model.train_on_batch(state_batch, action_target_values)
 

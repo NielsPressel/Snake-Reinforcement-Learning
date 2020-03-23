@@ -154,20 +154,22 @@ class Training:
                     envs[i].render()
                 action = self.agent.act(states[i])  # Get next action from agent
 
+                # Take one step using the agent's action
                 if isinstance(self.agent.memory, DualExperienceReplay):
-                    next_state, reward, done, _ = envs[i].step(action, self.agent.memory.adjust_rewards)  # Take one step using the agent's action
+                    next_state, reward, done, save = envs[i].step(action, self.agent.memory.adjust_rewards)
                 else:
-                    next_state, reward, done, _ = envs[i].step(action)
+                    next_state, reward, done, save = envs[i].step(action)
 
                 # Store transition in memory
-                self.agent.push_observation(Transition(states[i], action, reward, None if done else next_state))
+                if save:
+                    self.agent.push_observation(Transition(states[i], action, reward, None if done else next_state))
                 episode_rewards[i] += reward
 
                 if isinstance(self.agent, MinibatchDQN):
                     self.agent.train_short_memory(states[i], action, reward, None if done else next_state)
 
                 if done:  # On terminal state reset the environment and save the cumulative reward
-                    game_info.append((episode_rewards[i], step - last_game_step))
+                    game_info.append((episode_rewards[i], step - last_game_step, len(envs[i].snake)))
                     last_game_step = step
 
                     episode_reward_sequences[i].append(episode_rewards[i])
@@ -200,7 +202,7 @@ class Training:
             if step % 50_000 == 0:
                 with open(os.path.join(path, "training_metrics.txt"), 'a') as f:
                     for item in game_info:
-                        f.write(str(item[0]) + ", " + str(item[1]) + "\n")
+                        f.write(str(item[0]) + ", " + str(item[1]) + ", " + str(item[2]) + "\n")
                     f.flush()
                 game_info = []
 

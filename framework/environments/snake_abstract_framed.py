@@ -11,7 +11,7 @@ from framework.environments.snake_objects import *
 """---SnakeAbstract class"""
 
 
-class SnakeAbstract(Environment):
+class SnakeAbstractFramed(Environment):
     """An abstract Reinforcement Learning representation of the snake game.
 
     Attributes:
@@ -37,6 +37,7 @@ class SnakeAbstract(Environment):
     ACTION_LEFT = 1
     ACTION_RIGHT = 2
 
+    CELL_OOB = -1.0
     CELL_EMPTY = 0.0
     CELL_WALL = 1.0
     CELL_SNAKE_BODY = 2.0
@@ -161,12 +162,16 @@ class SnakeAbstract(Environment):
 
         dist = np.hypot(self.food.pos[0] - self.snake[-1].pos[0], self.food.pos[1] - self.snake[-1].pos[1])
 
-        reward += 2.5 * self.__log(snake_length, (snake_length + self.distance) / (snake_length + dist))
+        head_pos = self.snake[-1].pos
+        if head_pos[0] - 5 <= self.food.pos[0] < head_pos[0] + 5 or head_pos[1] - 5 <= self.food.pos[1] < head_pos[1] + 5:
+            reward += 5 * (self.__log(snake_length, (snake_length + self.distance) / (snake_length + dist)))
 
-        # if self.steps_since_last_food >= (0.7 * snake_length) + 15:
-            # reward -= (0.35 / snake_length)
+        """
+        if self.steps_since_last_food >= (0.7 * snake_length) + 15:
+            reward -= (0.35 / snake_length)
             # if memory_adjustment:
                 # memory_adjustment(-(0.5 / snake_length), (0.7 * snake_length) + 15)
+        """
 
         self.distance = dist
 
@@ -212,6 +217,7 @@ class SnakeAbstract(Environment):
             self.last_states.popleft()
 
         next_state = np.asarray(self.last_states)
+
         reward = max(-1.0, min(reward, 1.0)) # Clamp reward to range [-1.0, 1.0]
 
         if snake_length <= 10:
@@ -274,4 +280,26 @@ class SnakeAbstract(Environment):
             cntr += 1
 
         state[self.food.pos[0] + 1][self.food.pos[1] + 1] = self.CELL_FOOD
-        return state
+
+        head_pos = self.snake[-1].pos
+
+        frame = state[max(0, head_pos[0] - 4):min(22, head_pos[0] + 6), max(0, head_pos[1] - 4):min(22, head_pos[1] + 6)]
+
+        if frame.shape[1] != 10:
+            arr = np.zeros((frame.shape[0], 10 - frame.shape[1]))
+            arr.fill(self.CELL_OOB)
+            if frame[1][0] == self.CELL_WALL or frame[2][0] == self.CELL_WALL:
+                frame = np.concatenate((arr, frame), axis=1)
+            elif frame[1][frame.shape[1] - 1] == self.CELL_WALL or frame[2][frame.shape[1] - 1] == self.CELL_WALL:
+                frame = np.concatenate((frame, arr), axis=1)
+
+        if frame.shape[0] != 10:
+            arr = np.zeros((10 - frame.shape[0], 10))
+            arr.fill(self.CELL_OOB)
+            if frame[0][5] == self.CELL_WALL or frame[0][4] == self.CELL_WALL:
+                frame = np.concatenate((arr, frame), axis=0)
+            elif frame[frame.shape[0] - 1][5] or frame[frame.shape[0] - 1][4] == self.CELL_WALL:
+                frame = np.concatenate((frame, arr), axis=0)
+
+        assert frame.shape == (10, 10)
+        return frame

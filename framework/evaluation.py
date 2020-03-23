@@ -66,4 +66,5 @@ class Evaluation:
                 plot_func(episode_rewards, episode_steps, False)
 
         print(float(sum(snake_lens)) / float(len(snake_lens)))
+        print(max(snake_lens))
         return fail_counter
