@@ -1,4 +1,4 @@
-# Facharbeit Niels Pressel
+# Snake Reinforcement Learning
 
 ## Prerequisites
 
